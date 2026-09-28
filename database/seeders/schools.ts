@@ -1,0 +1,147 @@
+import type {
+  NavGroup,
+  SchoolLevelFilter,
+  SchoolRecord,
+} from "../../packages/features/types/seeders";
+
+export type { SchoolLevelFilter, SchoolRecord };
+
+export const schools = [
+  {
+    code: "SCH-001",
+    name: "Mwangaza Primary School",
+    level: "Primary",
+    type: "Public",
+    ward: "Ward A",
+    status: "Active",
+    students: 642,
+    staff: 24,
+    updated: "Today",
+    completeness: 92,
+  },
+  {
+    code: "SCH-002",
+    name: "Bahari Primary School",
+    level: "Primary",
+    type: "Public",
+    ward: "Ward B",
+    status: "Active",
+    students: 518,
+    staff: 19,
+    updated: "Today",
+    completeness: 88,
+  },
+  {
+    code: "SCH-003",
+    name: "Kijani Secondary School",
+    level: "Secondary",
+    type: "Public",
+    ward: "Ward C",
+    status: "Active",
+    students: 836,
+    staff: 38,
+    updated: "Yesterday",
+    completeness: 96,
+  },
+  {
+    code: "SCH-004",
+    name: "Tumaini Secondary School",
+    level: "Secondary",
+    type: "Private",
+    ward: "Ward D",
+    status: "Active",
+    students: 412,
+    staff: 27,
+    updated: "2 days ago",
+    completeness: 84,
+  },
+  {
+    code: "SCH-005",
+    name: "Upendo Primary School",
+    level: "Primary",
+    type: "Public",
+    ward: "Ward E",
+    status: "Update needed",
+    students: 391,
+    staff: 16,
+    updated: "12 Jun 2026",
+    completeness: 67,
+  },
+  {
+    code: "SCH-006",
+    name: "Baraka Mixed Day School",
+    level: "Primary",
+    type: "Public",
+    ward: "Ward A",
+    status: "Active",
+    students: 729,
+    staff: 26,
+    updated: "14 Jun 2026",
+    completeness: 91,
+  },
+  {
+    code: "SCH-007",
+    name: "Jitegemee Academy",
+    level: "Primary",
+    type: "Private",
+    ward: "Ward C",
+    status: "Active",
+    students: 285,
+    staff: 18,
+    updated: "15 Jun 2026",
+    completeness: 78,
+  },
+  {
+    code: "SCH-008",
+    name: "Mombasa Road Junior",
+    level: "Junior",
+    type: "Private",
+    ward: "Ward B",
+    status: "Active",
+    students: 346,
+    staff: 21,
+    updated: "16 Jun 2026",
+    completeness: 89,
+  },
+] satisfies SchoolRecord[];
+
+export const schoolLevels = ["All", "Primary", "Junior", "Secondary"] as const;
+
+export const navGroups = [
+  {
+    label: "Overview",
+    items: [
+      ["Dashboard", "LayoutDashboard"],
+      ["Schools", "School"],
+      ["Ward", "MapPinned"],
+      ["School Contacts", "BookOpen"],
+      ["Enrollment", "Users"],
+      ["Staff", "UserCog"],
+      ["Infrastructure", "Building2"],
+    ],
+  },
+  {
+    label: "Reports",
+    items: [
+      ["Reports", "FileBarChart2"],
+      ["Data Quality", "ClipboardCheck"],
+      ["Exports", "ArrowDownToLine"],
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      ["Users & Roles", "UserCog"],
+      ["Audit Logs", "History"],
+      ["Backup & Restore", "DatabaseBackup"],
+      ["Synchronization", "RefreshCw"],
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      ["Settings", "Settings"],
+      ["System Information", "Server"],
+    ],
+  },
+] satisfies NavGroup[];
