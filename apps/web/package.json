@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@scsms/db": "workspace:*",
     "@scsms/features": "workspace:*",
     "@scsms/ui": "workspace:*",
     "next": "16.3.5",

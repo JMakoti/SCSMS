@@ -1,6 +1,6 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "database/*"
+  - "database"
 allowBuilds:
   unrs-resolver: false

@@ -12,6 +12,7 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@scsms/db": "workspace:*",
     "@scsms/features": "workspace:*",
     "@scsms/ui": "workspace:*",
     "@tauri-apps/api": "^2.11.1",

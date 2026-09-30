@@ -1,0 +1,48 @@
+{
+  "name": "@scsms/db",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "db:generate:sqlite": "drizzle-kit generate --config=drizzle.config.sqlite.ts",
+    "db:migrate:sqlite": "drizzle-kit migrate --config=drizzle.config.sqlite.ts",
+    "db:push:sqlite": "drizzle-kit push --config=drizzle.config.sqlite.ts",
+    "db:studio:sqlite": "drizzle-kit studio --config=drizzle.config.sqlite.ts",
+    "db:generate:postgres": "drizzle-kit generate --config=drizzle.config.postgres.ts",
+    "db:migrate:postgres": "drizzle-kit migrate --config=drizzle.config.postgres.ts",
+    "db:push:postgres": "drizzle-kit push --config=drizzle.config.postgres.ts",
+    "db:studio:postgres": "drizzle-kit studio --config=drizzle.config.postgres.ts",
+    "db:seed": "tsx src/seed/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "peerDependencies": {
+    "next": "16.3.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./sqlite": "./src/sqlite.ts",
+    "./postgres": "./src/postgres.ts",
+    "./schema/*": "./src/schema/*.ts",
+    "./postgress-schemas/*": "./src/postgress-schemas/*.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^18.0.4",
+    "drizzle-orm": "^0.45.3",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20.19.43",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15"
+  }
+}

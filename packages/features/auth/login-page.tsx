@@ -27,7 +27,7 @@ export function LoginPage({
   const submit = (values: LoginFormValues) => {
     if (
       values.email === "admin@scsms.go.ke" &&
-      values.password === "admin123"
+      values.password === "Admin@123"
     ) {
       onLogin({ email: values.email });
       return;
@@ -92,7 +92,7 @@ export function LoginPage({
         <div className="login-demo">
           <strong>Demo credentials</strong>
           <span>Email: admin@scsms.go.ke</span>
-          <span>Password: admin123</span>
+          <span>Password: Admin@123</span>
         </div>
         <p className="login-footer">SC-SMS · Education records management</p>
       </div>
