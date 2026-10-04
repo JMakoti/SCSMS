@@ -8,7 +8,7 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
-import { staffRecords } from "../../../database/seeders/staff";
+import { staffRecords } from "../data/fixtures/staff";
 import StatusBadge from "../ui/status-badge";
 import { ExportMenu } from "../ui/export-menu";
 

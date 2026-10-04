@@ -3,7 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@scsms/ui/components/button";
-import { rabaiSchools } from "../../../database/seeders/rabai-schools";
+import { rabaiSchools } from "../data/fixtures/rabai-schools";
 
 type AssessmentKey = "KCSE" | "KJSEA" | "KPSEA";
 

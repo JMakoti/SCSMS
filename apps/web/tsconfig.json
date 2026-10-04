@@ -21,7 +21,6 @@
     "paths": {
       "@/components/*": ["../../packages/ui/src/components/*"],
       "@/features/*": ["../../packages/features/*"],
-      "@/seeders/*": ["../../database/seeders/*"],
       "@/*": ["./*"]
     }
   },

@@ -23,9 +23,9 @@ import {
   getRabaiWardInfo,
   getRabaiSchoolsByWard,
   rabaiSchoolYears,
-} from "../../../database/seeders/rabai-schools";
-import { getReportDetail } from "../../../database/seeders/reports";
-import { staffRecords } from "../../../database/seeders/staff";
+} from "../data/fixtures/rabai-schools";
+import { getReportDetail } from "../data/fixtures/reports";
+import { staffRecords } from "../data/fixtures/staff";
 import { ExportMenu } from "../ui/export-menu";
 
 export function RecordDetail({

@@ -19,10 +19,10 @@ import PageHeader from "../ui/page-header";
 import {
   dashboardGenderDistribution,
   dashboardRecentActivities,
-} from "../../../database/seeders/dashboard";
+} from "../data/fixtures/dashboard";
 import { useAcademicYear } from "../academic-years/academic-year-context";
 import { AcademicYearSelector } from "../academic-years/academic-year-selector";
-import { rabaiSchools, rabaiSchoolYears } from "../../../database/seeders/rabai-schools";
+import { rabaiSchools, rabaiSchoolYears } from "../data/fixtures/rabai-schools";
 export function StatCard({
   icon: Icon,
   label,

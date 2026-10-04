@@ -14,7 +14,7 @@ import type {
   infrastructureFacilityRowSchema,
   infrastructureProjectRecordSchema,
   moduleIconSchema,
-  moduleSeederConfigSchema,
+  moduleFixtureConfigSchema,
   navGroupSchema,
   profileDefaultsSchema,
   reportDetailSchema,
@@ -28,7 +28,7 @@ import type {
   schoolStatusSchema,
   schoolTypeSchema,
   staffRecordSchema,
-} from "../schemas/seeders";
+} from "../schemas/fixtures";
 
 export type SchoolLevel = z.infer<typeof schoolLevelSchema>;
 export type SchoolLevelFilter = z.infer<typeof schoolLevelFilterSchema>;
@@ -75,5 +75,5 @@ export type SchoolGenderDistribution = z.infer<
 >;
 
 export type ModuleIcon = z.infer<typeof moduleIconSchema>;
-export type ModuleSeederConfig = z.infer<typeof moduleSeederConfigSchema>;
+export type ModuleFixtureConfig = z.infer<typeof moduleFixtureConfigSchema>;
 export type ReportDetail = z.infer<typeof reportDetailSchema>;

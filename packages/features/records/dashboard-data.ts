@@ -4,6 +4,6 @@ export {
   schools,
   type SchoolLevelFilter,
   type SchoolRecord,
-} from "../../../database/seeders/schools";
+} from "../data/fixtures/schools";
 
-export { infrastructureProjects } from "../../../database/seeders/infrastructure";
+export { infrastructureProjects } from "../data/fixtures/infrastructure";

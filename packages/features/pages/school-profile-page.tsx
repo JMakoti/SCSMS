@@ -25,8 +25,8 @@ import SchoolContactsContent from "../pages/contacts-page";
 import InfrastructureContent from "../pages/infrastructure-page";
 import { EnrollmentGradeTable } from "../pages/enrollment-page";
 import { StaffContent } from "../pages/staff-page";
-import { rabaiSchools, rabaiSchoolYears } from "../../../database/seeders/rabai-schools";
-import { schoolHistoryActivities } from "../../../database/seeders/profile";
+import { rabaiSchools, rabaiSchoolYears } from "../data/fixtures/rabai-schools";
+import { schoolHistoryActivities } from "../data/fixtures/profile";
 import { ExportMenu } from "../ui/export-menu";
 import {
   formatSchoolBoarding,

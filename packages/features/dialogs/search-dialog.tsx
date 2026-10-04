@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { rabaiSchools } from "../../../database/seeders/rabai-schools";
+import { rabaiSchools } from "../data/fixtures/rabai-schools";
 import {
   ChevronRight,
   FileBarChart2,

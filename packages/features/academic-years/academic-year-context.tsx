@@ -11,7 +11,7 @@ import type { AcademicYear } from "../types/enterprise";
 import {
   academicYears as seededAcademicYears,
   activeAcademicYear,
-} from "../../../database/seeders/academic-years";
+} from "../data/fixtures/academic-years";
 
 type TransitionAcademicYearInput = {
   closingYearId: string;

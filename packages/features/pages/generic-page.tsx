@@ -4,9 +4,9 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@scsms/ui/components/button";
 import { AddWardDialog } from "../dialogs/ward-dialogs";
-import { moduleSeeders } from "../../../database/seeders/modules";
+import { moduleSeeders } from "../data/fixtures/modules";
 import { useAcademicYear } from "../academic-years/academic-year-context";
-import { getRabaiWardSummaries, rabaiSchools } from "../../../database/seeders/rabai-schools";
+import { getRabaiWardSummaries, rabaiSchools } from "../data/fixtures/rabai-schools";
 import { addStaffSchema } from "../schemas/add-staff-schema";
 import type { AddStaffFormValues } from "../types/forms";
 import {

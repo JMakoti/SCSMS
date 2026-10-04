@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@scsms/ui/components/button";
-import { rabaiSchools } from "../../../database/seeders/rabai-schools";
+import { rabaiSchools } from "../data/fixtures/rabai-schools";
 import {
   ChevronDown,
   ChevronLeft,

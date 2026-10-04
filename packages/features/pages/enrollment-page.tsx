@@ -17,8 +17,8 @@ import { ExportMenu } from "../ui/export-menu";
 import {
   enrollmentGradeBands,
   enrollmentGradeRows,
-} from "../../../database/seeders/enrollment";
-import { rabaiSchools, rabaiSchoolYears } from "../../../database/seeders/rabai-schools";
+} from "../data/fixtures/enrollment";
+import { rabaiSchools, rabaiSchoolYears } from "../data/fixtures/rabai-schools";
 
 const sortedRabaiSchools = [...rabaiSchools].sort((a, b) =>
   a.displayName.localeCompare(b.displayName),

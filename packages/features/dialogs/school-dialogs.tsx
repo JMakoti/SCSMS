@@ -18,7 +18,7 @@ import {
   schoolRegistrationStatusOptions,
   schoolTitleDeedOptions,
 } from "../schools/school-display";
-import { rabaiSchools, rabaiWards } from "../../../database/seeders/rabai-schools";
+import { rabaiSchools, rabaiWards } from "../data/fixtures/rabai-schools";
 import { Check, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 export function AddContactDialog({ onClose }: { onClose: () => void }) {

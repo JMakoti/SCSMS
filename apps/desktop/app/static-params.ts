@@ -1,6 +1,6 @@
-import { enrollmentRows, gradeEnrollmentSchools } from "../../../database/seeders/enrollment";
-import { moduleSeeders } from "../../../database/seeders/modules";
-import { rabaiSchools } from "../../../database/seeders/rabai-schools";
+import { enrollmentRows, gradeEnrollmentSchools } from "@scsms/features/data/fixtures/enrollment";
+import { moduleSeeders } from "@scsms/features/data/fixtures/modules";
+import { rabaiSchools } from "@scsms/features/data/fixtures/rabai-schools";
 
 type ModuleName = keyof typeof moduleSeeders;
 

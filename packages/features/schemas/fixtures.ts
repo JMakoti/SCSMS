@@ -177,7 +177,7 @@ export const moduleIconSchema = z.enum([
   "Users",
 ]);
 
-export const moduleSeederConfigSchema = z.object({
+export const moduleFixtureConfigSchema = z.object({
   icon: moduleIconSchema,
   desc: z.string(),
   action: z.string(),

@@ -15,7 +15,7 @@ import {
   getRabaiWardInfo,
   rabaiSchools,
   rabaiWards,
-} from "../../../database/seeders/rabai-schools";
+} from "../data/fixtures/rabai-schools";
 import {
   getSchoolClassification,
   getSchoolLevel,
@@ -30,7 +30,7 @@ import {
   schoolRegistrationStatusOptions,
   schoolTitleDeedOptions,
 } from "../schools/school-display";
-import { staffRecords } from "../../../database/seeders/staff";
+import { staffRecords } from "../data/fixtures/staff";
 import { Check, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 

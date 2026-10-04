@@ -39,11 +39,11 @@ import {
   rabaiSchools,
   rabaiSchoolYears,
   rabaiWards,
-} from "../../../database/seeders/rabai-schools";
-import { getReportDetail } from "../../../database/seeders/reports";
-import { staffRecords } from "../../../database/seeders/staff";
-import { infrastructureFacilityRows } from "../../../database/seeders/infrastructure";
-import { academicYears } from "../../../database/seeders/academic-years";
+} from "../data/fixtures/rabai-schools";
+import { getReportDetail } from "../data/fixtures/reports";
+import { staffRecords } from "../data/fixtures/staff";
+import { infrastructureFacilityRows } from "../data/fixtures/infrastructure";
+import { academicYears } from "../data/fixtures/academic-years";
 import { ExportMenu } from "../ui/export-menu";
 
 function WardSchoolsTab({ ward }: { ward: string }) {

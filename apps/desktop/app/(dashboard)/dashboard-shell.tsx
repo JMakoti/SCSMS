@@ -18,7 +18,7 @@ import {
   saveSessionUser,
   type SessionUser,
 } from "../session-user";
-import { loginWithLocalAccount } from "@/lib/auth";
+import { loginWithLocalAccount } from "@/repository/auth";
 
 type EditDialogState = {
   active: string;
@@ -49,19 +49,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<string | null>(null);
   const [editDialog, setEditDialog] = useState<EditDialogState | null>(null);
   const [darkOverride, setDarkOverride] = useState<boolean | null>(null);
-
-  // const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
-  // const [collapsed, setCollapsed] = useState(false);
-  // const [mobileNavPath, setMobileNavPath] = useState<string | null>(null);
-  // const [dialog, setDialog] = useState<string | null>(null);
-  // const [editDialog, setEditDialog] = useState<EditDialogState | null>(null);
-  // const [dark, setDark] = useState(
-  //   () =>
-  //     typeof window !== "undefined" &&
-  //     localStorage.getItem("scsms-theme") === "dark",
-  // );
-  // const [dark, setDark] = useState(false);
-  // const mobileNavOpen = mobileNavPath === pathname;
   const sessionUser =
     sessionOverride === undefined
       ? hydrated
@@ -73,26 +60,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     (hydrated && localStorage.getItem("scsms-theme") === "dark");
   const mobileNavOpen = mobileNavPath === pathname;
 
-
-  // useEffect(() => {
-
-  //   const handleKeyboardShortcut = (event: KeyboardEvent) => {
-  //     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-  //       event.preventDefault();
-  //       setDialog("search");
-  //     }
-
-  //     if (event.key === "Escape") {
-  //       setDialog(null);
-  //     }
-  //   };
-
-  //   window.addEventListener("keydown", handleKeyboardShortcut);
-  //   setSessionUser(readSessionUser());
-  //   setDark(localStorage.getItem("scsms-theme") === "dark");
-  //   return () => window.removeEventListener("keydown", handleKeyboardShortcut);
-
-  // }, []);
   useEffect(() => {
     const handleKeyboardShortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
@@ -124,28 +91,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       window.removeEventListener("scsms-edit-record", handleEditRecord);
   }, []);
 
-  // const toggleTheme = () => {
-  //   setDark((value) => {
-  //     const next = !value;
-  //     localStorage.setItem("scsms-theme", next ? "dark" : "light");
-  //     return next;
-  //   });
-  // };
   const toggleTheme = () => {
     const next = !dark;
     localStorage.setItem("scsms-theme", next ? "dark" : "light");
     setDarkOverride(next);
   };
 
-  // const login = (user: SessionUser) => {
-  //   saveSessionUser(user);
-  //   setSessionUser(user);
-  // };
-
-  // const logout = () => {
-  //   clearSessionUser();
-  //   setSessionUser(null);
-  // };
   const login = (user: SessionUser) => {
     saveSessionUser(user);
     setSessionOverride(user);

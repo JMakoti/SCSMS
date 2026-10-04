@@ -16,14 +16,14 @@ import { useForm } from "react-hook-form";
 import {
   infrastructureFacilityRows,
   infrastructureProjects,
-} from "../../../database/seeders/infrastructure";
-import { rabaiSchools } from "../../../database/seeders/rabai-schools";
+} from "../data/fixtures/infrastructure";
+import { rabaiSchools } from "../data/fixtures/rabai-schools";
 import { infrastructureProjectSchema } from "../schemas/infrastructure-project-schema";
 import type { InfrastructureProjectFormValues } from "../types/forms";
 import type {
   InfrastructureFacilityRow,
   InfrastructureProjectRecord,
-} from "../types/seeders";
+} from "../types/fixtures";
 import StatusBadge from "../ui/status-badge";
 import { ExportMenu } from "../ui/export-menu";
 

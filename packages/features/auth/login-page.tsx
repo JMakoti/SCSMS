@@ -36,7 +36,6 @@ export function LoginPage({
     handleSubmit,
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "admin@scsms.go.ke", password: "" },
   });
   const submit = async (values: LoginFormValues) => {
     setError("");
@@ -52,14 +51,14 @@ export function LoginPage({
       return;
     }
 
-    if (
-      values.email === "admin@scsms.go.ke" &&
-      values.password === "Admin@123"
-    ) {
-      onLogin({ email: values.email });
-      return;
-    }
-    setError("Use the demo credentials shown below.");
+    // if (
+    //   values.email === "admin@scsms.go.ke" &&
+    //   values.password === "Admin@123"
+    // ) {
+    onLogin({ email: values.email });
+    //   return;
+    // }
+    // setError("Use the demo credentials shown below.");
   };
   return (
     <main className="login-shell">

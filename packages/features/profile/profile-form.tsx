@@ -8,7 +8,7 @@ import { profileSchema } from "../schemas/profile-schema";
 import {
   profileDefaults,
   profileDetails,
-} from "../../../database/seeders/profile";
+} from "../data/fixtures/profile";
 import Link from "next/link";
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
