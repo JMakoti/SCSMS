@@ -39,6 +39,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            database::auth::login,
             run_sql,
             database::seed::seed_database
         ])

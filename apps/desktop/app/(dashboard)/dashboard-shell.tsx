@@ -18,6 +18,7 @@ import {
   saveSessionUser,
   type SessionUser,
 } from "../session-user";
+import { loginWithLocalAccount } from "@/lib/auth";
 
 type EditDialogState = {
   active: string;
@@ -158,7 +159,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   if (!sessionUser) {
     return (
       <>
-        <LoginPage onLogin={login} />
+        <LoginPage authenticate={loginWithLocalAccount} onLogin={login} />
         <style jsx global>
           {globalStyles}
         </style>

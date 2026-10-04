@@ -17,18 +17,41 @@ import { useForm } from "react-hook-form";
 import { loginSchema } from "../schemas/login-schema";
 import type { LoginFormValues } from "../types/forms";
 
+type LoginUser = {
+  email: string;
+};
+
 export function LoginPage({
+  authenticate,
   onLogin,
 }: {
-  onLogin: (user: { email: string }) => void;
+  authenticate?: (values: LoginFormValues) => Promise<LoginUser>;
+  onLogin: (user: LoginUser) => void;
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const { register, handleSubmit } = useForm<LoginFormValues>({
+  const {
+    formState: { isSubmitting },
+    register,
+    handleSubmit,
+  } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "admin@scsms.go.ke", password: "" },
   });
-  const submit = (values: LoginFormValues) => {
+  const submit = async (values: LoginFormValues) => {
+    setError("");
+
+    if (authenticate) {
+      try {
+        const user = await authenticate(values);
+        onLogin(user);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+      }
+
+      return;
+    }
+
     if (
       values.email === "admin@scsms.go.ke" &&
       values.password === "Admin@123"
@@ -89,8 +112,8 @@ export function LoginPage({
               {error}
             </p>
           )}
-          <button className="login-submit" type="submit">
-            Sign in <ChevronRight />
+          <button className="login-submit" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in..." : "Sign in"} <ChevronRight />
           </button>
         </form>
         <Link className="login-database-link" href="/database-test">

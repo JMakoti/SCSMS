@@ -385,6 +385,10 @@
   .login-submit:hover {
     background: #1d4ed8;
   }
+  .login-submit:disabled {
+    cursor: not-allowed;
+    opacity: .72;
+  }
   .login-submit svg {
     width: 15px;
     transition: transform 0.18s ease;

@@ -1,5 +1,10 @@
 export type SessionUser = {
+  id?: string;
+  name?: string;
   email: string;
+  roleId?: string;
+  roleName?: string;
+  permissions?: string[];
 };
 
 const sessionUserKey = "scsms-session-user";
