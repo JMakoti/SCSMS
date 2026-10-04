@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "867ead44-59eb-4c43-b570-027690454eb7",
+  "id": "b5cd1b79-969d-45a2-be7b-ce302ea4e2bb",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "academic_years": {
@@ -1684,6 +1684,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "logo_path": {
+          "name": "logo_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "registration_number": {
           "name": "registration_number",
           "type": "text",
@@ -1728,6 +1735,14 @@
         },
         "status": {
           "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "registration_status": {
+          "name": "registration_status",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

@@ -18,6 +18,7 @@ export const schools = sqliteTable(
     nemisCode: text("nemis_code"),
     knecCode: text("knec_code"),
     tscCode: text("tsc_code"),
+    logoPath: text("logo_path"),
     registrationNumber: text("registration_number"),
     officialName: text("official_name").notNull(),
     displayName: text("display_name").notNull(),
@@ -35,7 +36,7 @@ export const schools = sqliteTable(
     })
       .notNull()
       .default("active"),
-    registrationstatus: text("status", {
+    registrationstatus: text("registration_status", {
       enum: ["registered", "suspended", "closed", "pending"],
     }),
     boardingType: text("boarding_type", {

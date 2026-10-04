@@ -1,10 +1,21 @@
 import { defineConfig } from "drizzle-kit";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({
+  path: path.resolve(__dirname, "../.env"),
+});
+
 
 export default defineConfig({
   schema: "./src/postgress-schemas/*.ts",
   out: "./drizzle/postgres",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/scsms",
+    url: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/scsmsdb",
   },
 });

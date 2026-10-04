@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import {
+  ArrowUpRight,
   ChevronRight,
+  Database,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -13,6 +16,7 @@ import {
 import { useForm } from "react-hook-form";
 import { loginSchema } from "../schemas/login-schema";
 import type { LoginFormValues } from "../types/forms";
+
 export function LoginPage({
   onLogin,
 }: {
@@ -89,6 +93,13 @@ export function LoginPage({
             Sign in <ChevronRight />
           </button>
         </form>
+        <Link className="login-database-link" href="/database-test">
+          <span>
+            <Database />
+            Database test
+          </span>
+          <ArrowUpRight />
+        </Link>
         <div className="login-demo">
           <strong>Demo credentials</strong>
           <span>Email: admin@scsms.go.ke</span>
