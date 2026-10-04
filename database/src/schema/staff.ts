@@ -23,7 +23,7 @@ export const staff = sqliteTable(
       enum: ["goverment(TSC)", "county_goverment", "school_board(BOM)", "private_owner", "faith_based_organization", "NGO", "agency"],
     }).notNull(),
     employmentType: text("employment_type", {
-      enum: ["permanent", "contract", "intern", "volunteer"],
+      enum: ["permanent", "contract", "temporary", "intern", "volunteer"],
     }).notNull(),
     phone: text("phone"),
     email: text("email"),

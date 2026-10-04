@@ -43,7 +43,7 @@ export const schools = sqliteTable(
       enum: ["day", "boarding", "day_and_boarding"],
     }),
     genderType: text("gender_type", {
-      enum: ["male", "boys", "mixed"],
+      enum: ["boys", "girls", "mixed", "unknown"],
     }),
     titleDeed: text("title_deed", {
       enum: ["yes", "no"],
@@ -58,7 +58,7 @@ export const schools = sqliteTable(
     phone: text("phone"),
     email: text("email"),
     sne: text("sne", {
-      enum: ["yes", "no"],
+      enum: ["yes", "no", "unknown"],
     }),
     openedOn: text("opened_on"),
     completenessScore: integer("completeness_score").notNull().default(0),
