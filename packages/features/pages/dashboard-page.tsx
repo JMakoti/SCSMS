@@ -16,13 +16,9 @@ import {
   Users,
 } from "lucide-react";
 import PageHeader from "../ui/page-header";
-import {
-  dashboardGenderDistribution,
-  dashboardRecentActivities,
-} from "../data/fixtures/dashboard";
 import { useAcademicYear } from "../academic-years/academic-year-context";
 import { AcademicYearSelector } from "../academic-years/academic-year-selector";
-import { rabaiSchools, rabaiSchoolYears } from "../data/fixtures/rabai-schools";
+import { useFeatureData } from "../data/feature-data-context";
 export function StatCard({
   icon: Icon,
   label,
@@ -56,7 +52,8 @@ export function StatCard({
 }
 
 export function MiniBarChart() {
-  const wardCounts = rabaiSchools.reduce<Record<string, number>>(
+  const { schools } = useFeatureData();
+  const wardCounts = schools.reduce<Record<string, number>>(
     (acc, school) => {
       const ward = school.ward ?? "Not mapped";
       acc[ward] = (acc[ward] ?? 0) + 1;
@@ -96,20 +93,21 @@ export function MiniBarChart() {
   );
 }
 export function DonutChart() {
-  const primary = rabaiSchools.filter(
+  const { schools } = useFeatureData();
+  const primary = schools.filter(
     (school) => school.institutionType === "PRIMARY",
   ).length;
-  const jss = rabaiSchools.filter(
+  const jss = schools.filter(
     (school) => school.institutionType === "JUNIOR_SECONDARY",
   ).length;
-  const senior = rabaiSchools.filter(
+  const senior = schools.filter(
     (school) => school.institutionType === "SENIOR_SECONDARY",
   ).length;
   return (
     <div className="donut-wrap">
       <div className="donut">
         <div className="donut-inner">
-          <strong>{rabaiSchools.length}</strong>
+          <strong>{schools.length}</strong>
           <span>schools</span>
         </div>
       </div>
@@ -133,8 +131,15 @@ export function DonutChart() {
 
 function Dashboard({ setActive }: { setActive: (v: string) => void }) {
   const { currentAcademicYear } = useAcademicYear();
+  const {
+    schools,
+    schoolYears,
+    dashboardGenderDistribution,
+    dashboardRecentActivities,
+    pendingSyncCount,
+  } = useFeatureData();
   const activityIcons = { Pencil, Plus, Users, UserCog };
-  const currentSchoolYears = rabaiSchoolYears.filter(
+  const currentSchoolYears = schoolYears.filter(
     (schoolYear) => schoolYear.academicYearId === currentAcademicYear.id,
   );
   const totalStudents = currentSchoolYears.reduce(
@@ -145,12 +150,21 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
     (sum, schoolYear) => sum + schoolYear.teacherCount,
     0,
   );
-  const primarySchools = rabaiSchools.filter(
+  const primarySchools = schools.filter(
     (school) => school.institutionType === "PRIMARY",
   ).length;
-  const seniorSchools = rabaiSchools.filter(
+  const seniorSchools = schools.filter(
     (school) => school.institutionType === "SENIOR_SECONDARY",
   ).length;
+  const completeSchoolCount = schools.filter(
+    (school) =>
+      [school.schoolCode, school.phone, school.email, school.ward, school.location]
+        .filter(Boolean).length === 5,
+  ).length;
+  const incompleteSchoolCount = schools.length - completeSchoolCount;
+  const completeness = schools.length
+    ? Math.round((completeSchoolCount / schools.length) * 100)
+    : 0;
   const totalGenderLearners = dashboardGenderDistribution.reduce(
     (sum, item) => sum + item.value,
     0,
@@ -158,7 +172,7 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
   const maleShare = Math.round(
     ((dashboardGenderDistribution.find((item) => item.label === "Male")
       ?.value ?? 0) /
-      totalGenderLearners) *
+      (totalGenderLearners || 1)) *
       100,
   );
 
@@ -174,9 +188,13 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
           <Check />
         </div>
         <div>
-          <strong>All local changes are saved</strong>
+          <strong>
+            {pendingSyncCount
+              ? `${pendingSyncCount} local changes are waiting to sync`
+              : "All local changes are saved"}
+          </strong>
           <span>
-            7 changes are waiting to synchronize when connectivity is available.
+            Changes are synchronized when connectivity is available.
           </span>
         </div>
         <button onClick={() => setActive("Synchronization")}>
@@ -187,21 +205,21 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
         <StatCard
           icon={School}
           label="Total Schools"
-          value={String(rabaiSchools.length)}
-          detail="Rabai master records"
+          value={String(schools.length)}
+          detail="Registered school records"
         />
         <StatCard
           icon={Users}
           label="Total Students"
           value={totalStudents.toLocaleString()}
-          detail={`Demo school-year data ${currentAcademicYear.name}`}
+          detail={`Enrollment data ${currentAcademicYear.name}`}
           tone="indigo"
         />
         <StatCard
           icon={UserCog}
           label="Teaching Staff"
           value={totalTeachers.toLocaleString()}
-          detail={`Demo staffing ${currentAcademicYear.name}`}
+          detail={`Teaching staff ${currentAcademicYear.name}`}
           tone="sky"
         />
         <StatCard
@@ -221,7 +239,7 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
         <StatCard
           icon={RefreshCw}
           label="Pending Sync Changes"
-          value="7"
+          value={String(pendingSyncCount)}
           detail="Waiting to sync"
           tone="violet"
         />
@@ -370,19 +388,19 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
           </div>
           <div className="completeness-body">
             <div className="completion-ring">
-              <strong>86%</strong>
+              <strong>{completeness}%</strong>
               <span>Complete</span>
             </div>
             <div className="completion-stats">
               <div>
                 <i className="complete-dot" />
                 <span>Complete records</span>
-                <b>110</b>
+                <b>{completeSchoolCount.toLocaleString()}</b>
               </div>
               <div>
                 <i className="incomplete-dot" />
                 <span>Incomplete records</span>
-                <b>18</b>
+                <b>{incompleteSchoolCount.toLocaleString()}</b>
               </div>
               <button onClick={() => setActive("Data Quality")}>
                 View data quality <ChevronRight />

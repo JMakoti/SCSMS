@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
   Check,
@@ -12,17 +12,28 @@ import {
   X,
 } from "lucide-react";
 import { useAcademicYear } from "../academic-years/academic-year-context";
+import { useFeatureData } from "../data/feature-data-context";
+import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
 import PageHeader from "../ui/page-header";
 import { ExportMenu } from "../ui/export-menu";
-import {
-  enrollmentGradeBands,
-  enrollmentGradeRows,
-} from "../data/fixtures/enrollment";
-import { rabaiSchools, rabaiSchoolYears } from "../data/fixtures/rabai-schools";
-
-const sortedRabaiSchools = [...rabaiSchools].sort((a, b) =>
-  a.displayName.localeCompare(b.displayName),
-);
+const enrollmentGradeBands = {
+  Primary: [
+    { label: "PP1-PP3", grades: "Early years", count: "3 grades", tone: "blue" },
+    { label: "Grade 1-6", grades: "Primary cycle", count: "6 grades", tone: "indigo" },
+  ],
+  Junior: [
+    { label: "Grade 7-9", grades: "Junior secondary", count: "3 grades", tone: "violet" },
+  ],
+  "Senior / Secondary": [
+    { label: "Grade 10-12", grades: "Senior secondary", count: "3 grades", tone: "sky" },
+  ],
+  "All schools": [
+    { label: "PP1-PP3", grades: "Early years", count: "3 grades", tone: "blue" },
+    { label: "Grade 1-6", grades: "Primary cycle", count: "6 grades", tone: "indigo" },
+    { label: "Grade 7-9", grades: "Junior secondary", count: "3 grades", tone: "violet" },
+    { label: "Grade 10-12", grades: "Senior secondary", count: "3 grades", tone: "sky" },
+  ],
+} as const;
 
 function getEnrollmentSchoolType(institutionType: string) {
   return institutionType === "JUNIOR_SECONDARY"
@@ -31,6 +42,36 @@ function getEnrollmentSchoolType(institutionType: string) {
       ? "Senior / Secondary"
       : "Primary";
 }
+
+function getEnrollmentGrades(schoolType: string) {
+  if (schoolType === "Junior") {
+    return ["Grade 7", "Grade 8", "Grade 9"];
+  }
+  if (schoolType === "Senior / Secondary") {
+    return ["Grade 10", "Grade 11", "Grade 12"];
+  }
+  return [
+    "PP1",
+    "PP2",
+    "PP3",
+    "Grade 1",
+    "Grade 2",
+    "Grade 3",
+    "Grade 4",
+    "Grade 5",
+    "Grade 6",
+  ];
+}
+
+function getEnrollmentGradeBand(grade: string) {
+  if (grade.startsWith("PP")) return "PP1-PP3";
+
+  const gradeNumber = Number(grade.replace("Grade ", ""));
+  if (gradeNumber <= 6) return "Grade 1-6";
+  if (gradeNumber <= 9) return "Grade 7-9";
+  return "Grade 10-12";
+}
+
 export function GradeEnrollmentPage({
   grade,
   onBack,
@@ -39,23 +80,27 @@ export function GradeEnrollmentPage({
   onBack: () => void;
 }) {
   const { currentAcademicYear } = useAcademicYear();
+  const { schools: schoolRecords, enrollmentRows, schoolYears } = useFeatureData();
   const gradeType =
     grade === "Grade 7-9"
       ? "JUNIOR_SECONDARY"
-      : grade === "Grade 10-13"
+      : grade === "Grade 10-12"
         ? "SENIOR_SECONDARY"
         : "PRIMARY";
-  const schools = sortedRabaiSchools
+  const schools = [...schoolRecords]
     .filter((school) => school.institutionType === gradeType)
     .map((school) => {
-      const year = rabaiSchoolYears.find(
+      const rows = enrollmentRows.filter(
         (record) =>
           record.schoolId === school.id &&
-          record.academicYearId === currentAcademicYear.id,
+          record.academicYearId === currentAcademicYear.id &&
+          record.gradeBand === grade,
       );
-      const learners = year?.studentCount ?? 0;
-      const boys = Math.round(learners * 0.51);
-      return [school.displayName, boys, learners - boys] as const;
+      return [
+        school.displayName,
+        rows.reduce((total, row) => total + row.male, 0),
+        rows.reduce((total, row) => total + row.female, 0),
+      ] as const;
     });
   return (
     <div className="content">
@@ -159,16 +204,26 @@ export function EnrollmentContent({
   onGradeSelect?: (grade: string) => void;
 }) {
   const { currentAcademicYear } = useAcademicYear();
+  const { schools, schoolYears, enrollmentRows: gradeRows, terms } = useFeatureData();
   const [schoolType, setSchoolType] = useState("All schools");
-  const [term, setTerm] = useState("Term 1");
+  const [termId, setTermId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
   const bands =
     enrollmentGradeBands[schoolType as keyof typeof enrollmentGradeBands];
-  const enrollmentRows = sortedRabaiSchools.map((school) => {
-    const year = rabaiSchoolYears.find(
+  const currentTerms = terms.filter(
+    (termRecord) => termRecord.academicYearId === currentAcademicYear.id,
+  );
+  const selectedTerm =
+    currentTerms.find((termRecord) => termRecord.id === termId) ??
+    currentTerms[0] ??
+    null;
+  const enrollmentRows = [...schools]
+    .sort((a, b) => a.displayName.localeCompare(b.displayName))
+    .map((school) => {
+    const year = schoolYears.find(
       (record) =>
         record.schoolId === school.id &&
         record.academicYearId === currentAcademicYear.id,
@@ -177,10 +232,19 @@ export function EnrollmentContent({
     return {
       school: school.displayName,
       type: getEnrollmentSchoolType(school.institutionType),
-      total: year?.studentCount ?? 0,
+      total: selectedTerm
+        ? gradeRows
+            .filter(
+          (row) =>
+            row.schoolId === school.id &&
+            row.academicYearId === currentAcademicYear.id &&
+            row.termId === selectedTerm.id,
+            )
+            .reduce((sum, row) => sum + row.total, 0)
+        : year?.studentCount ?? 0,
       updated: currentAcademicYear.name,
     };
-  });
+    });
   const filteredEnrollmentRows = enrollmentRows.filter((row) => {
     const matchesType = schoolType === "All schools" || row.type === schoolType;
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -207,7 +271,7 @@ export function EnrollmentContent({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [schoolType, searchQuery, currentAcademicYear.id]);
+  }, [schoolType, searchQuery, currentAcademicYear.id, selectedTerm?.id]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, pageCount));
@@ -245,10 +309,16 @@ export function EnrollmentContent({
             <option>Junior</option>
             <option>Senior / Secondary</option>
           </select>
-          <select value={term} onChange={(e) => setTerm(e.target.value)}>
-            <option>Term 1</option>
-            <option>Term 2</option>
-            <option>Term 3</option>
+          <select
+            value={selectedTerm?.id ?? ""}
+            onChange={(event) => setTermId(event.target.value)}
+          >
+            {currentTerms.length === 0 && <option value="">All terms</option>}
+            {currentTerms.map((termRecord) => (
+              <option key={termRecord.id} value={termRecord.id}>
+                {termRecord.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -280,7 +350,7 @@ export function EnrollmentContent({
           <div>
             <h2>School enrollment register</h2>
             <p>
-              {term} - {currentAcademicYear.name} - {schoolType}
+              {selectedTerm?.name ?? "All terms"} - {currentAcademicYear.name} - {schoolType}
             </p>
           </div>
           <div className="enrollment-register-actions">
@@ -311,7 +381,7 @@ export function EnrollmentContent({
                   ? "PP1-PP3 / Grade 1-6"
                   : row.type === "Junior"
                     ? "Grade 7-9"
-                    : "Grade 10-13",
+                    : "Grade 10-12",
                 row.total,
                 row.updated,
               ])}
@@ -370,7 +440,7 @@ export function EnrollmentContent({
                                 (band) => band.label === "Grade 7-9",
                               )
                             : bands.filter(
-                                (band) => band.label === "Grade 10-13",
+                                (band) => band.label === "Grade 10-12",
                               )
                         ).map((band) => (
                           <i key={band.label}>{band.label}</i>
@@ -446,42 +516,114 @@ export function EnrollmentContent({
 export function EnrollmentGradeTable({
   school,
   term = "Term 1",
+  termId,
+  onSaveGrade,
 }: {
   school: string;
   term?: string;
+  termId?: string | null;
+  onSaveGrade?: (input: EnrollmentGradeSaveInput) => Promise<void>;
 }) {
-  const schoolType = school.includes("Junior")
-    ? "Junior"
-    : school.includes("Senior") || school.includes("Secondary")
-      ? "Senior / Secondary"
-      : "Primary";
-  const allRows = enrollmentGradeRows;
-  const initialRows =
-    schoolType === "Primary"
-      ? allRows.slice(0, 9)
-      : schoolType === "Junior"
-        ? allRows.slice(9, 12)
-        : allRows.slice(12);
+  const { currentAcademicYear } = useAcademicYear();
+  const { schools: schoolRecords, enrollmentRows } = useFeatureData();
+  const schoolRecord = schoolRecords.find(
+    (record) => record.displayName === school,
+  );
+  const schoolType = getEnrollmentSchoolType(
+    schoolRecord?.institutionType ?? "",
+  );
+  const initialRows = useMemo(() => {
+    const savedRows = new Map(
+      enrollmentRows
+        .filter(
+          (row) =>
+            row.schoolId === schoolRecord?.id &&
+            row.academicYearId === currentAcademicYear.id &&
+            (!termId || row.termId === termId),
+        )
+        .map((row) => [row.grade, row] as const),
+    );
+
+    return getEnrollmentGrades(schoolType).map((grade) => {
+      const savedRow = savedRows.get(grade);
+      return [
+        grade,
+        savedRow?.male ?? 0,
+        savedRow?.female ?? 0,
+        savedRow?.total ?? 0,
+      ] as const;
+    });
+  }, [
+    currentAcademicYear.id,
+    enrollmentRows,
+    schoolRecord?.id,
+    schoolType,
+    termId,
+  ]);
   const [rows, setRows] = useState(initialRows);
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ male: number; female: number }>({
     male: 0,
     female: 0,
   });
+  const [savingGrade, setSavingGrade] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState("");
   const startEdit = (grade: string | number, male: number, female: number) => {
     setEditing(String(grade));
     setDraft({ male, female });
+    setSaveError("");
   };
   const cancelEdit = () => setEditing(null);
-  const saveEdit = (grade: string | number) => {
-    setRows(
-      rows.map((row) =>
-        row[0] === grade
-          ? [row[0], draft.male, draft.female, draft.male + draft.female]
-          : row,
-      ),
-    );
-    setEditing(null);
+  const saveEdit = async (grade: string | number) => {
+    const gradeName = String(grade);
+    if (
+      !Number.isSafeInteger(draft.male) ||
+      !Number.isSafeInteger(draft.female) ||
+      draft.male < 0 ||
+      draft.female < 0
+    ) {
+      setSaveError("Boys and girls counts must be non-negative whole numbers.");
+      return;
+    }
+    if (!onSaveGrade || !schoolRecord || !termId) {
+      setSaveError("Enrollment cannot be saved because its school, term, or database handler is unavailable.");
+      return;
+    }
+
+    const gradeBand = getEnrollmentGradeBand(gradeName);
+    setSavingGrade(gradeName);
+    setSaveError("");
+    try {
+      await onSaveGrade({
+        schoolId: schoolRecord.id,
+        academicYearId: currentAcademicYear.id,
+        termId,
+        grade: gradeName,
+        gradeBand,
+        male: draft.male,
+        female: draft.female,
+      });
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row[0] === gradeName
+            ? [row[0], draft.male, draft.female, draft.male + draft.female]
+            : row,
+        ),
+      );
+      setEditing(null);
+      window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "Enrollment could not be saved.",
+      );
+    } finally {
+      setSavingGrade(null);
+    }
   };
   return (
     <section className="panel enrollment-detail-panel">
@@ -493,7 +635,7 @@ export function EnrollmentGradeTable({
           <div>
             <h2>Enrollment by grade</h2>
             <p>
-              {school} · Academic year 2026 · {term}
+              {school} · {currentAcademicYear.name} · {term}
             </p>
           </div>
         </div>
@@ -510,11 +652,12 @@ export function EnrollmentGradeTable({
           </span>
         </div>
       </div>
+      {saveError && <p role="alert">{saveError}</p>}
       <div className="detail-enrollment-table">
         <div className="detail-enrollment-head">
           <span>Grade</span>
-          <span>Male</span>
-          <span>Female</span>
+          <span>Boys</span>
+          <span>Girls</span>
           <span>Total learners</span>
         </div>
         {rows.map(([grade, male, female, total]) => (
@@ -533,7 +676,7 @@ export function EnrollmentGradeTable({
                   onChange={(e) =>
                     setDraft({ ...draft, male: Number(e.target.value) })
                   }
-                  aria-label={`${grade} male learners`}
+                  aria-label={`${grade} boys`}
                 />
                 <input
                   className="grade-number-input"
@@ -543,13 +686,14 @@ export function EnrollmentGradeTable({
                   onChange={(e) =>
                     setDraft({ ...draft, female: Number(e.target.value) })
                   }
-                  aria-label={`${grade} female learners`}
+                  aria-label={`${grade} girls`}
                 />
                 <span className="grade-edit-actions">
                   <button
-                    onClick={() => saveEdit(grade)}
+                    onClick={() => void saveEdit(grade)}
                     aria-label={`Save ${grade}`}
                     className="grade-save"
+                    disabled={savingGrade === grade}
                   >
                     <Check />
                   </button>

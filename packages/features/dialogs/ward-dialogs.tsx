@@ -5,24 +5,56 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@scsms/ui/components/button";
 import { addWardSchema } from "../schemas/add-ward-schema";
 import type { AddWardFormValues } from "../types/forms";
+import { useFeatureData } from "../data/feature-data-context";
 import { Check, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 
-export function AddWardDialog({ onClose }: { onClose: () => void }) {
+export function AddWardDialog({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave?: (values: AddWardFormValues) => Promise<void>;
+}) {
   const [saved, setSaved] = useState(false);
-  const { register, handleSubmit } = useForm<AddWardFormValues>({
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const { subCounties } = useFeatureData();
+  const availableSubCounties = subCounties
+    .filter((subCounty) => subCounty.isActive)
+    .sort((a, b) =>
+      (a.subCounty ?? "").localeCompare(b.subCounty ?? ""),
+    );
+  const { register, handleSubmit, watch } = useForm<AddWardFormValues>({
     resolver: zodResolver(addWardSchema),
     defaultValues: {
       wardName: "",
       wardCode: "",
-      county: "Kilifi",
-      countyCode: "003",
-      subCounty: "Rabai",
-      subCountyCode: "014",
-      constituency: "Rabai",
-      constituencyCode: "014",
+      subCountyId: "",
+      notes: "",
     },
   });
+  const selectedSubCounty = availableSubCounties.find(
+    (subCounty) => subCounty.id === watch("subCountyId"),
+  );
+
+  const saveWard = async (values: AddWardFormValues) => {
+    setSaveError("");
+    setSaving(true);
+    try {
+      if (onSave) {
+        await onSave(values);
+        window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      }
+      setSaved(true);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Unable to save the ward.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -50,13 +82,17 @@ export function AddWardDialog({ onClose }: { onClose: () => void }) {
               <Check />
             </div>
             <h3>Ward record saved</h3>
-            <p>The ward record has been added to the synchronization queue.</p>
+            <p>
+              {onSave
+                ? "The ward record has been saved to the database."
+                : "The ward record has been added to the synchronization queue."}
+            </p>
             <button className="outline-button" onClick={onClose}>
               Done
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(() => setSaved(true))}>
+          <form onSubmit={handleSubmit(saveWard)}>
             <div className="form-section">
               <h3>Ward details</h3>
               <div className="form-grid">
@@ -74,30 +110,42 @@ export function AddWardDialog({ onClose }: { onClose: () => void }) {
                 </label>
                 <label>
                   County
-                  <input {...register("county")} placeholder="Kilifi" />
+                  <input value={selectedSubCounty?.county ?? ""} readOnly />
                 </label>
                 <label>
                   County code
-                  <input {...register("countyCode")} placeholder="003" />
+                  <input value={selectedSubCounty?.countyCode ?? ""} readOnly />
                 </label>
                 <label>
                   Sub-County
-                  <input {...register("subCounty")} placeholder="Rabai" />
+                  <select {...register("subCountyId")}>
+                    <option value="">Select a sub-county</option>
+                    {availableSubCounties.map((subCounty) => (
+                      <option key={subCounty.id} value={subCounty.id}>
+                        {subCounty.subCounty ?? "Unnamed sub-county"}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   Sub-County code
-                  <input {...register("subCountyCode")} placeholder="014" />
+                  <input value={selectedSubCounty?.subCountyCode ?? ""} readOnly />
                 </label>
                 <label>
                   Constituency
-                  <input {...register("constituency")} placeholder="Rabai" />
+                  <input value={selectedSubCounty?.constituency ?? ""} readOnly />
                 </label>
                 <label>
                   Constituency code
-                  <input {...register("constituencyCode")} placeholder="014" />
+                  <input value={selectedSubCounty?.constituencyCode ?? ""} readOnly />
                 </label>
               </div>
             </div>
+            {saveError && (
+              <p className="form-error" role="alert">
+                {saveError}
+              </p>
+            )}
             <div className="dialog-footer">
               <button
                 className="outline-button"
@@ -106,8 +154,12 @@ export function AddWardDialog({ onClose }: { onClose: () => void }) {
               >
                 Cancel
               </button>
-              <Button className="modal-primary-button" type="submit">
-                Save ward
+              <Button
+                className="modal-primary-button"
+                type="submit"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save ward"}
               </Button>
             </div>
           </form>

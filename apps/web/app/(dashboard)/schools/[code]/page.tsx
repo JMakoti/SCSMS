@@ -1,4 +1,4 @@
-import SchoolProfileRoutePage from "@scsms/features/pages/school-profile-route-page";
+import SchoolProfileWeb from "./school-profile-web";
 
 export default async function SchoolDetailPage({
   params,
@@ -7,5 +7,5 @@ export default async function SchoolDetailPage({
 }) {
   const { code } = await params;
 
-  return <SchoolProfileRoutePage schoolId={decodeURIComponent(code)} />;
+  return <SchoolProfileWeb schoolId={decodeURIComponent(code)} />;
 }

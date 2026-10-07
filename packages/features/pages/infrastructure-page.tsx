@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Building2,
@@ -13,11 +13,8 @@ import {
   X,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import {
-  infrastructureFacilityRows,
-  infrastructureProjects,
-} from "../data/fixtures/infrastructure";
-import { rabaiSchools } from "../data/fixtures/rabai-schools";
+import { useFeatureData } from "../data/feature-data-context";
+import { useAcademicYear } from "../academic-years/academic-year-context";
 import { infrastructureProjectSchema } from "../schemas/infrastructure-project-schema";
 import type { InfrastructureProjectFormValues } from "../types/forms";
 import type {
@@ -26,31 +23,81 @@ import type {
 } from "../types/fixtures";
 import StatusBadge from "../ui/status-badge";
 import { ExportMenu } from "../ui/export-menu";
+import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
+import { formatInfrastructureFacilityStatus } from "../schools/infrastructure-display";
 
-const registrySchools = [...rabaiSchools].sort((a, b) =>
-  a.displayName.localeCompare(b.displayName),
-);
-const defaultInfrastructureSchool =
-  registrySchools[0]?.displayName ?? "Not provided";
+type InfrastructureProjectActions = {
+  onCreateProject?: (
+    input: InfrastructureProjectFormValues,
+  ) => Promise<string | void>;
+  onUpdateProject?: (
+    projectId: string,
+    input: InfrastructureProjectFormValues,
+  ) => Promise<void>;
+  onDeleteProject?: (projectId: string) => Promise<void>;
+};
+
+type InfrastructureContentProps = InfrastructureProjectActions & {
+  detail?: boolean;
+  school?: string;
+  onSaveFacility?: (input: InfrastructureFacilitySaveInput) => Promise<void>;
+};
 
 export function AddInfrastructureDialog({
   onClose,
-  selectedSchool = defaultInfrastructureSchool,
+  selectedSchool,
+  onSaveProject,
 }: {
   onClose: () => void;
   selectedSchool?: string;
+  onSaveProject?: InfrastructureProjectActions["onCreateProject"];
 }) {
+  const { schools, terms } = useFeatureData();
+  const { currentAcademicYear } = useAcademicYear();
+  const targetYear =
+    Number(currentAcademicYear.name.match(/\d{4}/)?.[0]) ||
+    new Date().getFullYear();
+  const currentTerm = terms.find(
+    (term) => term.academicYearId === currentAcademicYear.id,
+  );
+  const registrySchools = [...schools].sort((a, b) =>
+    a.displayName.localeCompare(b.displayName),
+  );
+  const resolvedSchool = selectedSchool ?? registrySchools[0]?.displayName ?? "";
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const { register, handleSubmit } = useForm<InfrastructureProjectFormValues>({
     resolver: zodResolver(infrastructureProjectSchema),
     defaultValues: {
-      selectedSchool,
+      selectedSchool: resolvedSchool,
       category: "Classrooms",
       status: "Active",
-      term: "Term 1",
-      targetYear: 2026,
+      term: currentTerm?.name ?? "",
+      targetYear,
     },
   });
+  const saveProject = async (values: InfrastructureProjectFormValues) => {
+    if (!onSaveProject) {
+      setSaveError("Infrastructure project saving is not configured.");
+      return;
+    }
+    setSaving(true);
+    setSaveError("");
+    try {
+      await onSaveProject(values);
+      window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      setSaved(true);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "The infrastructure project could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <div className="overlay" onClick={onClose}>
       <div className="form-dialog" onClick={(event) => event.stopPropagation()}>
@@ -74,13 +121,14 @@ export function AddInfrastructureDialog({
               <Check />
             </div>
             <h3>Infrastructure project saved</h3>
-            <p>The project has been added to the synchronization queue.</p>
+            <p>The infrastructure project has been saved.</p>
             <button className="outline-button" onClick={onClose}>
               Done
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(() => setSaved(true))}>
+          <form onSubmit={handleSubmit(saveProject)}>
+            {saveError && <p role="alert">{saveError}</p>}
             <div className="form-section">
               <h3>Project details</h3>
               <div className="form-grid">
@@ -162,9 +210,14 @@ export function AddInfrastructureDialog({
                 <label>
                   Term
                   <select {...register("term")}>
-                    <option>Term 1</option>
-                    <option>Term 2</option>
-                    <option>Term 3</option>
+                    <option value="">Select a term</option>
+                    {terms
+                      .filter((term) => term.academicYearId === currentAcademicYear.id)
+                      .map((term) => (
+                        <option key={term.id} value={term.name}>
+                          {term.name}
+                        </option>
+                      ))}
                   </select>
                 </label>
                 <label>
@@ -176,21 +229,21 @@ export function AddInfrastructureDialog({
                   <input
                     {...register("targetYear", { valueAsNumber: true })}
                     type="number"
-                    min="2026"
-                    placeholder="2026"
+                    min={targetYear}
+                    placeholder={String(targetYear)}
                   />
                 </label>
                 <label>
                   Year Started
                   <input
-                    {...register("dateStarted", { valueAsNumber: true })}
+                    {...register("dateStarted")}
                     type="date"
                   />
                 </label>
                 <label>
                   Completed Date
                   <input
-                    {...register("dateCompleted", { valueAsNumber: true })}
+                    {...register("dateCompleted")}
                     type="date"
                   />
                 </label>
@@ -211,8 +264,12 @@ export function AddInfrastructureDialog({
               >
                 Cancel
               </button>
-              <button className="modal-primary-button" type="submit">
-                Save project
+              <button
+                className="modal-primary-button"
+                type="submit"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save project"}
               </button>
             </div>
           </form>
@@ -224,16 +281,44 @@ export function AddInfrastructureDialog({
 
 function InfrastructureContent({
   detail = false,
-  school = defaultInfrastructureSchool,
-}: {
-  detail?: boolean;
-  school?: string;
-}) {
+  school,
+  onSaveFacility,
+  onCreateProject,
+  onUpdateProject,
+  onDeleteProject,
+}: InfrastructureContentProps) {
+  const {
+    schools,
+    terms,
+    academicYears,
+    infrastructureFacilities,
+    infrastructureProjects,
+  } =
+    useFeatureData();
+  const { currentAcademicYear } = useAcademicYear();
+  const registrySchools = [...schools].sort((a, b) =>
+    a.displayName.localeCompare(b.displayName),
+  );
+  const selectedSchool = school ?? registrySchools[0]?.displayName ?? "";
+  const selectedSchoolId = registrySchools.find(
+    (record) => record.displayName === selectedSchool,
+  )?.id;
+  const selectedSchoolFacilities = useMemo(
+    () =>
+      infrastructureFacilities.filter(
+        (facility) =>
+          facility.schoolId === selectedSchoolId &&
+          facility.academicYearId === currentAcademicYear.id,
+      ),
+    [currentAcademicYear.id, infrastructureFacilities, selectedSchoolId],
+  );
   const [showAddModal, setShowAddModal] = useState(false);
   const [facilityRows, setFacilityRows] = useState<InfrastructureFacilityRow[]>(
-    infrastructureFacilityRows,
+    selectedSchoolFacilities,
   );
   const [editingFacility, setEditingFacility] = useState<string | null>(null);
+  const [savingFacility, setSavingFacility] = useState(false);
+  const [facilitySaveError, setFacilitySaveError] = useState("");
   const [facilityDraft, setFacilityDraft] =
     useState<InfrastructureFacilityRow | null>(null);
   const [projects, setProjects] = useState<InfrastructureProjectRecord[]>(
@@ -242,6 +327,14 @@ function InfrastructureContent({
   const [editingProject, setEditingProject] = useState<string | null>(null);
   const [projectDraft, setProjectDraft] =
     useState<InfrastructureProjectRecord | null>(null);
+  const [projectSaveError, setProjectSaveError] = useState("");
+  const [savingProject, setSavingProject] = useState(false);
+  useEffect(() => {
+    setFacilityRows(selectedSchoolFacilities);
+  }, [selectedSchoolFacilities]);
+  useEffect(() => {
+    setProjects(infrastructureProjects);
+  }, [infrastructureProjects]);
   const visibleProjects = detail
     ? projects.filter((project) => project.school === school)
     : projects;
@@ -264,15 +357,65 @@ function InfrastructureContent({
       };
     });
   };
-  const saveFacilityEdit = () => {
+  const saveFacilityEdit = async () => {
     if (!facilityDraft || !editingFacility) return;
-    setFacilityRows((current) =>
-      current.map((row) =>
-        row.facility === editingFacility ? facilityDraft : row,
-      ),
+    if (
+      !selectedSchoolId ||
+      !onSaveFacility ||
+      !Number.isSafeInteger(facilityDraft.available) ||
+      !Number.isSafeInteger(facilityDraft.good) ||
+      !Number.isSafeInteger(facilityDraft.needsRepair) ||
+      facilityDraft.available < 0 ||
+      facilityDraft.good < 0 ||
+      facilityDraft.needsRepair < 0
+    ) {
+      setFacilitySaveError(
+        "Facility changes cannot be saved. Check the school and non-negative whole-number counts.",
+      );
+      return;
+    }
+
+    const originalRow = selectedSchoolFacilities.find(
+      (row) => row.facility === editingFacility,
     );
-    setEditingFacility(null);
-    setFacilityDraft(null);
+    if (!originalRow) {
+      setFacilitySaveError(
+        "This facility could not be found in the selected school. Refresh the data and try again.",
+      );
+      return;
+    }
+
+    setSavingFacility(true);
+    setFacilitySaveError("");
+    try {
+      await onSaveFacility({
+        schoolId: selectedSchoolId,
+        academicYearId: currentAcademicYear.id,
+        previousFacility: originalRow.facility,
+        facility: facilityDraft.facility.trim(),
+        available: facilityDraft.available,
+        good: facilityDraft.good,
+        needsRepair: facilityDraft.needsRepair,
+        status: formatInfrastructureFacilityStatus(facilityDraft.status) as
+          InfrastructureFacilitySaveInput["status"],
+      });
+      setFacilityRows((current) =>
+        current.map((row) =>
+          row.facility === editingFacility ? facilityDraft : row,
+        ),
+      );
+      setEditingFacility(null);
+      setFacilityDraft(null);
+      window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+    } catch (error) {
+      setFacilitySaveError(
+        error instanceof Error
+          ? error.message
+          : "The facility could not be saved.",
+      );
+    } finally {
+      setSavingFacility(false);
+    }
   };
   const cancelFacilityEdit = () => {
     setEditingFacility(null);
@@ -296,25 +439,88 @@ function InfrastructureContent({
       current ? { ...current, [field]: value } : current,
     );
   };
-  const saveProjectEdit = () => {
+  const saveProjectEdit = async () => {
     if (!projectDraft || !editingProject) return;
-    setProjects((current) =>
-      current.map((project) =>
-        project.name === editingProject ? projectDraft : project,
-      ),
+    const currentProject = projects.find(
+      (project) => (project.id ?? project.name) === editingProject,
     );
-    setEditingProject(null);
-    setProjectDraft(null);
+    if (!currentProject?.id || !onUpdateProject) {
+      setProjectSaveError(
+        "This project cannot be updated because its database record or save handler is unavailable.",
+      );
+      return;
+    }
+    const targetYear = Number(projectDraft.year);
+    if (!Number.isInteger(targetYear)) {
+      setProjectSaveError("Enter a valid target year before saving.");
+      return;
+    }
+
+    setSavingProject(true);
+    setProjectSaveError("");
+    try {
+      await onUpdateProject(currentProject.id, {
+        projectName: projectDraft.name,
+        selectedSchool: projectDraft.school,
+        category: projectDraft.category ?? "Other",
+        status: projectDraft.status,
+        term: projectDraft.term === "Not recorded" ? "" : projectDraft.term,
+        budget:
+          projectDraft.budget === "Not recorded" ? "" : projectDraft.budget,
+        targetYear,
+        description: projectDraft.detail,
+        contractor: projectDraft.contractor ?? "",
+        infrastructureCondition: projectDraft.condition ?? "",
+        dateStarted: projectDraft.dateStarted ?? "",
+        dateCompleted: projectDraft.dateCompleted ?? "",
+      });
+      window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === currentProject.id ? projectDraft : project,
+        ),
+      );
+      setEditingProject(null);
+      setProjectDraft(null);
+    } catch (error) {
+      setProjectSaveError(
+        error instanceof Error
+          ? error.message
+          : "The infrastructure project could not be saved.",
+      );
+    } finally {
+      setSavingProject(false);
+    }
   };
   const cancelProjectEdit = () => {
     setEditingProject(null);
     setProjectDraft(null);
   };
-  const deleteProject = (projectName: string) => {
-    setProjects((current) =>
-      current.filter((project) => project.name !== projectName),
+  const deleteProject = async (projectKey: string) => {
+    const project = projects.find(
+      (record) => (record.id ?? record.name) === projectKey,
     );
-    if (editingProject === projectName) cancelProjectEdit();
+    if (!project?.id || !onDeleteProject) {
+      setProjectSaveError(
+        "This project cannot be deleted because its database record or delete handler is unavailable.",
+      );
+      return;
+    }
+    setProjectSaveError("");
+    try {
+      await onDeleteProject(project.id);
+      setProjects((current) =>
+        current.filter((record) => record.id !== project.id),
+      );
+      window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      if (editingProject === projectKey) cancelProjectEdit();
+    } catch (error) {
+      setProjectSaveError(
+        error instanceof Error
+          ? error.message
+          : "The infrastructure project could not be deleted.",
+      );
+    }
   };
 
   return (
@@ -325,9 +531,11 @@ function InfrastructureContent({
         <AddInfrastructureDialog
           selectedSchool={school}
           onClose={() => setShowAddModal(false)}
+          onSaveProject={onCreateProject}
         />
       )}
       <section className="panel infrastructure-panel">
+        {facilitySaveError && <p role="alert">{facilitySaveError}</p>}
         <div className="panel-header">
           <div>
             <h2>School infrastructure</h2>
@@ -431,7 +639,8 @@ function InfrastructureContent({
                       <option>Pending</option>
                       <option>Active</option>
                       <option>Completed</option>
-                      <option>Cancelled</option>
+                      <option>Needs repair</option>
+                      <option>Unavailable</option>
                     </select>
                   </>
                 ) : (
@@ -448,7 +657,11 @@ function InfrastructureContent({
                       <button type="button" onClick={cancelFacilityEdit}>
                         <X />
                       </button>
-                      <button type="button" onClick={saveFacilityEdit}>
+                      <button
+                        type="button"
+                        onClick={() => void saveFacilityEdit()}
+                        disabled={savingFacility}
+                      >
                         <Save />
                       </button>
                     </>
@@ -478,6 +691,7 @@ function InfrastructureContent({
         </div>
       </section>
       <section className="panel infrastructure-projects-panel">
+        {projectSaveError && <p role="alert">{projectSaveError}</p>}
         <div className="panel-header">
           <div>
             <h2>Infrastructure projects</h2>
@@ -518,13 +732,14 @@ function InfrastructureContent({
             </div>
           )}
           {visibleProjects.map((project) => {
-            const isEditing = editingProject === project.name;
+            const projectKey = project.id ?? project.name;
+            const isEditing = editingProject === projectKey;
             const draft = isEditing ? projectDraft : null;
 
             return (
               <details
                 className="infrastructure-project"
-                key={project.name}
+                key={projectKey}
                 open={isEditing || undefined}
               >
                 <summary>
@@ -550,6 +765,7 @@ function InfrastructureContent({
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
+                        setProjectSaveError("");
                         startProjectEdit(project);
                       }}
                     >
@@ -562,7 +778,7 @@ function InfrastructureContent({
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        deleteProject(project.name);
+                        void deleteProject(projectKey);
                       }}
                     >
                       <Trash2 />
@@ -617,9 +833,18 @@ function InfrastructureContent({
                             updateProjectDraft("term", event.target.value)
                           }
                         >
-                          <option>Term 1</option>
-                          <option>Term 2</option>
-                          <option>Term 3</option>
+                          {terms
+                            .filter((term) => {
+                              const academicYearId = academicYears.find(
+                                (year) => year.name === draft.year,
+                              )?.id;
+                              return term.academicYearId === academicYearId;
+                            })
+                            .map((term) => (
+                              <option key={term.id} value={term.name}>
+                                {term.name}
+                              </option>
+                            ))}
                         </select>
                       </label>
                       <label>
@@ -632,6 +857,7 @@ function InfrastructureContent({
                         >
                           <option>Completed</option>
                           <option>In progress</option>
+                          <option>Cancelled</option>
                         </select>
                       </label>
                       <label>
@@ -657,7 +883,11 @@ function InfrastructureContent({
                           <X />
                           Cancel
                         </button>
-                        <button type="button" onClick={saveProjectEdit}>
+                        <button
+                          type="button"
+                          onClick={() => void saveProjectEdit()}
+                          disabled={savingProject}
+                        >
                           <Save />
                           Save changes
                         </button>
@@ -687,6 +917,26 @@ function InfrastructureContent({
                         <span>
                           <b>Budget</b>
                           {project.budget}
+                        </span>
+                        <span>
+                          <b>Category</b>
+                          {project.category ?? "Not recorded"}
+                        </span>
+                        <span>
+                          <b>Contractor</b>
+                          {project.contractor ?? "Not recorded"}
+                        </span>
+                        <span>
+                          <b>Condition</b>
+                          {project.condition ?? "Not recorded"}
+                        </span>
+                        <span>
+                          <b>Started</b>
+                          {project.dateStarted ?? "Not recorded"}
+                        </span>
+                        <span>
+                          <b>Completed</b>
+                          {project.dateCompleted ?? "Not recorded"}
                         </span>
                       </div>
                     </div>

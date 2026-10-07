@@ -10,5 +10,6 @@ export * from "./schools";
 export * from "./setting";
 export * from "./staff";
 export * from "./system";
+export * from "./subject-combinations";
 export * from "./user";
 export * from "./subcounty_ward";

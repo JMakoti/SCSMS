@@ -1,4 +1,4 @@
-import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
+import EnrollmentDetailDesktop from "./enrollment-detail-desktop";
 import { generateEnrollmentStaticParams } from "../../../static-params";
 
 export function generateStaticParams() {
@@ -12,10 +12,5 @@ export default async function EnrollmentDetailPage({
 }) {
   const { item } = await params;
 
-  return (
-    <RecordDetailRoutePage
-      active="Enrollment"
-      item={decodeURIComponent(item)}
-    />
-  );
+  return <EnrollmentDetailDesktop item={decodeURIComponent(item)} />;
 }

@@ -25,9 +25,10 @@ import SchoolContactsContent from "../pages/contacts-page";
 import InfrastructureContent from "../pages/infrastructure-page";
 import { EnrollmentGradeTable } from "../pages/enrollment-page";
 import { StaffContent } from "../pages/staff-page";
-import { rabaiSchools, rabaiSchoolYears } from "../data/fixtures/rabai-schools";
-import { schoolHistoryActivities } from "../data/fixtures/profile";
+import { useFeatureData } from "../data/feature-data-context";
 import { ExportMenu } from "../ui/export-menu";
+import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
+import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
 import {
   formatSchoolBoarding,
   formatSchoolClassification,
@@ -65,84 +66,28 @@ const trackOptions = [
   "More",
 ];
 
-const seniorSubjectCombinations: SubjectCombinationRecord[] = [
-  {
-    code: "SSC-101",
-    combination: "History, CRE, Business Studies",
-    pathway: "Social Science",
-    track: "Humanities and Business Studies",
-  },
-  {
-    code: "SSC-204",
-    combination: "Physics, Chemistry, Advanced Mathematics",
-    pathway: "STEM",
-    track: "Pure Science",
-  },
-  {
-    code: "SSC-218",
-    combination: "Computer Studies, Physics, Design Technology",
-    pathway: "STEM",
-    track: "Applied Science",
-  },
-  {
-    code: "SSC-305",
-    combination: "Sports Science, Biology, Physical Education",
-    pathway: "Art & Sport Science",
-    track: "Sports",
-  },
-  {
-    code: "SSC-411",
-    combination: "Agriculture, Building Construction, Electricity",
-    pathway: "STEM",
-    track: "Technical Studies",
-  },
-  {
-    code: "SSC-506",
-    combination: "Geography, History, Literature",
-    pathway: "Social Science",
-    track: "Humanities and Business Studies",
-  },
-  {
-    code: "SSC-612",
-    combination: "Biology, Chemistry, Agriculture",
-    pathway: "STEM",
-    track: "Applied Science",
-  },
-  {
-    code: "SSC-707",
-    combination: "Music, Theatre, Physical Education",
-    pathway: "Art & Sport Science",
-    track: "Sports",
-  },
-  {
-    code: "SSC-809",
-    combination: "Business Studies, Mathematics, Geography",
-    pathway: "Social Science",
-    track: "Humanities and Business Studies",
-  },
-  {
-    code: "SSC-914",
-    combination: "Electricity, Computer Studies, Mathematics",
-    pathway: "STEM",
-    track: "Technical Studies",
-  },
-  {
-    code: "SSC-102",
-    combination: "Fine Art, Music, Literature",
-    pathway: "Art & Sport Science",
-    track: "More",
-  },
-  {
-    code: "SSC-215",
-    combination: "Physics, Geography, Computer Studies",
-    pathway: "STEM",
-    track: "Pure Science",
-  },
-];
-
 function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
   const pageSize = 10;
-  const [combinations, setCombinations] = useState(seniorSubjectCombinations);
+  const { schools, subjectCombinations } = useFeatureData();
+  const { currentAcademicYear } = useAcademicYear();
+  const school = schools.find((record) => record.displayName === schoolName);
+  const databaseCombinations = subjectCombinations
+    .filter(
+      (record) =>
+        record.schoolId === school?.id &&
+        record.academicYearId === currentAcademicYear.id &&
+        record.isActive,
+    )
+    .map(({ code, combination, pathway, track }) => ({
+      code,
+      combination,
+      pathway,
+      track,
+    }));
+  const [combinations, setCombinations] = useState(databaseCombinations);
+  useEffect(() => {
+    setCombinations(databaseCombinations);
+  }, [school?.id, currentAcademicYear.id, subjectCombinations]);
   const [page, setPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCode, setEditingCode] = useState<string | null>(null);
@@ -463,6 +408,14 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
                 </tr>
               );
             })}
+            {visibleCombinations.length === 0 && (
+              <tr>
+                <td colSpan={5}>
+                  No subject combinations are recorded for {schoolName} in{" "}
+                  {currentAcademicYear.name}.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -509,6 +462,7 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
 }
 
 export function SchoolHistoryContent({ schoolName }: { schoolName: string }) {
+  const { schoolHistoryActivities } = useFeatureData();
   const activityIcons = { Pencil, Building2, UserCog, Users };
   const activities = schoolHistoryActivities;
   return (
@@ -543,25 +497,91 @@ export function SchoolHistoryContent({ schoolName }: { schoolName: string }) {
 export function SchoolProfile({
   schoolId,
   onBack,
+  onDeleteSchool,
+  resolveLogo,
+  onSaveEnrollmentGrade,
+  onSaveInfrastructureFacility,
 }: {
   schoolId: string;
   onBack: () => void;
+  onDeleteSchool?: (schoolId: string) => Promise<void>;
+  resolveLogo?: (schoolId: string, logoPath: string) => Promise<string>;
+  onSaveEnrollmentGrade?: (input: EnrollmentGradeSaveInput) => Promise<void>;
+  onSaveInfrastructureFacility?: (
+    input: InfrastructureFacilitySaveInput,
+  ) => Promise<void>;
 }) {
   const [tab, setTab] = useState("Overview");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [term, setTerm] = useState("Term 1");
+  const [termId, setTermId] = useState("");
+  const [resolvedLogo, setResolvedLogo] = useState<{
+    path: string;
+    src: string;
+  } | null>(null);
+  const [failedLogoPath, setFailedLogoPath] = useState<string | null>(null);
   const { currentAcademicYear } = useAcademicYear();
-  const school =
-    rabaiSchools.find((record) => record.id === schoolId) ?? rabaiSchools[0];
-  const isSeniorSchool = school.institutionType === "SENIOR_SECONDARY";
-  const yearRecord = rabaiSchoolYears.find(
+  const { schools, schoolYears, terms, contacts } = useFeatureData();
+  const currentYearTerms = terms.filter(
+    (termRecord) => termRecord.academicYearId === currentAcademicYear.id,
+  );
+  const selectedTerm =
+    currentYearTerms.find((termRecord) => termRecord.id === termId) ??
+    currentYearTerms[0] ??
+    null;
+  const school = schools.find((record) => record.id === schoolId);
+  const isSeniorSchool = school?.institutionType === "SENIOR_SECONDARY";
+
+  useEffect(() => {
+    let cancelled = false;
+    const logoPath = school?.logoPath;
+    if (!logoPath || !resolveLogo) return;
+
+    resolveLogo(schoolId, logoPath)
+      .then((src) => {
+        if (!cancelled) setResolvedLogo({ path: logoPath, src });
+      })
+      .catch((error: unknown) => {
+        console.error("Unable to load the school logo.", error);
+        if (!cancelled) setFailedLogoPath(logoPath);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [school?.logoPath, schoolId, resolveLogo]);
+
+  useEffect(() => {
+    if (!isSeniorSchool && tab === "Subject") {
+      setTab("Overview");
+    }
+  }, [isSeniorSchool, tab]);
+
+  if (!school) {
+    return (
+      <div className="content">
+        <div className="empty-state">
+          <strong>School record not found</strong>
+          <span>This school is not present in the current database.</span>
+          <button type="button" className="outline-button" onClick={onBack}>
+            Back to schools
+          </button>
+        </div>
+      </div>
+    );
+  }
+  const logoSrc =
+    resolvedLogo?.path === school.logoPath &&
+    failedLogoPath !== school.logoPath
+      ? resolvedLogo?.src ?? null
+      : null;
+  const yearRecord = schoolYears.find(
     (record) =>
       record.schoolId === school.id &&
       record.academicYearId === currentAcademicYear.id,
   );
-  const totalGenderLearners = yearRecord?.studentCount ?? 0;
-  const maleLearners = Math.round(totalGenderLearners * 0.51);
-  const femaleLearners = totalGenderLearners - maleLearners;
+  const maleLearners = yearRecord?.maleCount ?? 0;
+  const femaleLearners = yearRecord?.femaleCount ?? 0;
+  const totalGenderLearners = maleLearners + femaleLearners;
   const maleShare = totalGenderLearners
     ? Math.round((maleLearners / totalGenderLearners) * 100)
     : 0;
@@ -573,7 +593,7 @@ export function SchoolProfile({
   const registrationStatus = getSchoolRegistrationStatus(school);
   const schoolLevel = getSchoolLevel(school);
   const schoolOwnership = getSchoolOwnership(school);
-  const titleDeed = getSchoolTitleDeed();
+  const titleDeed = getSchoolTitleDeed(school);
   const completenessFields = [
     school.schoolCode,
     school.uicCode,
@@ -605,11 +625,6 @@ export function SchoolProfile({
     school.latitude !== null && school.longitude !== null
       ? `${school.latitude}, ${school.longitude}`
       : "Not provided";
-  useEffect(() => {
-    if (!isSeniorSchool && tab === "Subject") {
-      setTab("Overview");
-    }
-  }, [isSeniorSchool, tab]);
   const schoolExportRows = [
     ["School code", displayValue(school.schoolCode)],
     ["UIC code", displayValue(school.uicCode)],
@@ -625,7 +640,7 @@ export function SchoolProfile({
     ["SNE", displayValue(school.sne.replaceAll("_", " "))],
     [
       "Data confidence",
-      displayValue(school.dataConfidence.replaceAll("_", " ")),
+      displayValue(school.dataConfidence?.replaceAll("_", " ")),
     ],
     ["County", school.county],
     ["Sub-County", school.subCounty],
@@ -646,6 +661,7 @@ export function SchoolProfile({
         detail: {
           active: "Schools",
           item: school.displayName,
+          schoolId: school.id,
         },
       }),
     );
@@ -656,7 +672,14 @@ export function SchoolProfile({
         <ConfirmDeleteDialog
           item={school.displayName}
           onCancel={() => setShowDeleteModal(false)}
-          onConfirm={onBack}
+          onConfirm={async () => {
+            if (!onDeleteSchool) {
+              throw new Error("School deletion is not configured for this app.");
+            }
+            await onDeleteSchool(school.id);
+            window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+            onBack();
+          }}
         />
       )}
       <div className="breadcrumbs profile-crumb">
@@ -667,7 +690,15 @@ export function SchoolProfile({
       <div className="profile-head">
         <div className="profile-title">
           <div className="profile-school-icon">
-            <School />
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={`${school.displayName} logo`}
+                onError={() => setFailedLogoPath(school.logoPath ?? null)}
+              />
+            ) : (
+              <School />
+            )}
           </div>
           <div>
             <div className="profile-code">
@@ -719,7 +750,11 @@ export function SchoolProfile({
             key={x}
           >
             {x}
-            {x === "Contacts" && <span>3</span>}
+            {x === "Contacts" && (
+              <span>
+                {contacts.filter((contact) => contact.schoolId === school.id).length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -728,32 +763,44 @@ export function SchoolProfile({
       ) : tab === "History" ? (
         <SchoolHistoryContent schoolName={school.displayName} />
       ) : tab === "Staff" ? (
-        <StaffContent variant="school-profile" />
+        <StaffContent variant="school-profile" school={school.displayName} />
       ) : tab === "Infrastructure" ? (
-        <InfrastructureContent detail school={school.displayName} />
+        <InfrastructureContent
+          detail
+          school={school.displayName}
+          onSaveFacility={onSaveInfrastructureFacility}
+        />
       ) : tab === "Subject" && isSeniorSchool ? (
         <SubjectCombinationsContent schoolName={school.displayName} />
       ) : tab === "Enrollment" ? (
         <div className="enrollment-tab-content">
           <div className="term-cards">
-            {["Term 1", "Term 2", "Term 3"].map((termName) => (
+            {currentYearTerms.map((termRecord) => (
               <button
-                key={termName}
-                className={`term-card ${term === termName ? "active" : ""}`}
-                onClick={() => setTerm(termName)}
+                key={termRecord.id}
+                className={`term-card ${selectedTerm?.id === termRecord.id ? "active" : ""}`}
+                onClick={() => setTermId(termRecord.id)}
               >
                 <span className="term-card-check">
-                  {term === termName ? "✓" : ""}
+                  {selectedTerm?.id === termRecord.id ? "✓" : ""}
                 </span>
                 <span>
-                  <strong>{termName}</strong>
+                  <strong>{termRecord.name}</strong>
                   <small>{currentAcademicYear.name}</small>
                 </span>
-                <b>{term === termName ? "Current" : "Select"}</b>
+                <b>{selectedTerm?.id === termRecord.id ? "Current" : "Select"}</b>
               </button>
             ))}
+            {currentYearTerms.length === 0 && (
+              <p>No terms are configured for {currentAcademicYear.name}.</p>
+            )}
           </div>
-          <EnrollmentGradeTable school={school.displayName} term={term} />
+          <EnrollmentGradeTable
+            school={school.displayName}
+            term={selectedTerm?.name ?? "All terms"}
+            termId={selectedTerm?.id}
+            onSaveGrade={onSaveEnrollmentGrade}
+          />
         </div>
       ) : tab === "Overview" ? (
         <div className="profile-grid">
@@ -778,15 +825,15 @@ export function SchoolProfile({
               </div>
               <div>
                 <dt>KNEC code</dt>
-                <dd>Not provided</dd>
+                <dd>{displayValue(school.knecCode)}</dd>
               </div>
               <div>
                 <dt>TSC code</dt>
-                <dd>Not provided</dd>
+                <dd>{displayValue(school.tscCode)}</dd>
               </div>
               <div>
                 <dt>Registration number</dt>
-                <dd>Not provided</dd>
+                <dd>{displayValue(school.registrationNumber)}</dd>
               </div>
               <div>
                 <dt>Official name</dt>
@@ -838,7 +885,7 @@ export function SchoolProfile({
               <div>
                 <dt>Data confidence</dt>
                 <dd>
-                  {displayValue(school.dataConfidence.replaceAll("_", " "))}
+                  {displayValue(school.dataConfidence?.replaceAll("_", " "))}
                 </dd>
               </div>
             </dl>
@@ -856,11 +903,11 @@ export function SchoolProfile({
             <dl className="detail-list">
               <div>
                 <dt>County</dt>
-                <dd>{school.county}</dd>
+                <dd>{displayValue(school.county)}</dd>
               </div>
               <div>
                 <dt>Sub-County</dt>
-                <dd>{school.subCounty}</dd>
+                <dd>{displayValue(school.subCounty)}</dd>
               </div>
               <div>
                 <dt>Ward</dt>

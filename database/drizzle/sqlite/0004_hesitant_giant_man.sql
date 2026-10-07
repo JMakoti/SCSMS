@@ -1,0 +1,1 @@
+ALTER TABLE `infrastructure_projects` ADD `term_id` text REFERENCES terms(id);

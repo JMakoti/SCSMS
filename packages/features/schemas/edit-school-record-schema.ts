@@ -3,10 +3,11 @@ import { requiredText } from "./required-text";
 
 export const editSchoolRecordSchema = z.object({
   fields: z.object({
-    schoolCode: z.string().trim().optional(),
-    uicCode: z.string().trim().optional(),
+    schoolCode: requiredText("School code"),
+    uicCode: requiredText("UIC code"),
     knecCode: z.string().trim().optional(),
     tscCode: z.string().trim().optional(),
+    filePath: z.string().trim().optional(),
     regNumber: z.string().trim().optional(),
     officialName: requiredText("Official school name"),
     displayName: requiredText("Display name"),
@@ -46,6 +47,9 @@ export const editSchoolRecordSchema = z.object({
     longitude: z.string().trim().optional(),
     sne: z.enum(["YES", "NO", "UNKNOWN"]),
     isActive: z.enum(["Active", "Inactive"]),
-    dataConfidence: z.enum(["VERIFIED", "PARTIAL", "SECONDARY_SOURCE"]),
+    dataConfidence: z
+      .enum(["VERIFIED", "PARTIAL", "SECONDARY_SOURCE"])
+      .or(z.literal(""))
+      .optional(),
   }),
 });

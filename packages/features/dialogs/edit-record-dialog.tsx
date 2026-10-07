@@ -11,11 +11,8 @@ import type {
   EditSchoolRecordFormValues,
   EditWardRecordFormValues,
 } from "../types/forms";
-import {
-  getRabaiWardInfo,
-  rabaiSchools,
-  rabaiWards,
-} from "../data/fixtures/rabai-schools";
+import { useFeatureData } from "../data/feature-data-context";
+import { useAcademicYear } from "../academic-years/academic-year-context";
 import {
   getSchoolClassification,
   getSchoolLevel,
@@ -30,7 +27,6 @@ import {
   schoolRegistrationStatusOptions,
   schoolTitleDeedOptions,
 } from "../schools/school-display";
-import { staffRecords } from "../data/fixtures/staff";
 import { Check, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -55,31 +51,88 @@ function calculatePercentage(
 export function EditRecordDialog({
   active,
   item,
+  schoolId,
+  wardId,
   onClose,
+  onSaveSchool,
+  onSaveWard,
+  onChooseFile,
+  wardCode,
 }: {
   active: string;
   item: string;
+  schoolId?: string;
+  wardId?: string;
   onClose: () => void;
+  onSaveSchool?: (
+    schoolId: string,
+    values: EditSchoolRecordFormValues,
+  ) => Promise<void>;
+  onSaveWard?: (values: EditWardRecordFormValues) => Promise<void>;
+  onChooseFile?: () => Promise<string | null>;
+  wardCode?: string;
 }) {
+  const {
+    schools,
+    staff: staffRecords,
+    wards,
+    wardOptions,
+    subCounties,
+    enrollmentRows,
+    performanceRecords,
+    performanceSubjects,
+    terms,
+  } = useFeatureData();
+  const { currentAcademicYear } = useAcademicYear();
   const [saved, setSaved] = useState(false);
-  const wardInfo = active === "Ward" ? getRabaiWardInfo(item) : null;
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const wardRecord = active === "Ward"
+    ? wards.find((ward) => ward.id === wardId) ??
+      wards.find((ward) => ward.name === item || ward.wardCode === wardCode)
+    : null;
+  const wardInfo = wardRecord
+    ? {
+        wardName: wardRecord.name,
+        wardCode: wardRecord.wardCode,
+        subCountyId: wardRecord.subCountyId,
+      }
+    : null;
   const schoolInfo =
     active === "Schools"
-      ? (rabaiSchools.find(
+      ? (schools.find(
         (school) =>
+          school.id === schoolId ||
           school.displayName === item ||
           school.officialName === item ||
           school.schoolCode === item,
-      ) ?? rabaiSchools[0])
+      ) ?? null)
       : null;
+  const [selectedLogoPath, setSelectedLogoPath] = useState(
+    schoolInfo?.logoPath ?? "",
+  );
   const staffInfo =
     active === "Staff"
       ? staffRecords.find((record) => record.name === item)
       : null;
-  const staffIndex =
-    active === "Staff"
-      ? staffRecords.findIndex((record) => record.name === item)
-      : -1;
+  const enrollmentRow = enrollmentRows.find(
+    (row) =>
+      row.schoolId === schoolInfo?.id &&
+      row.academicYearId === currentAcademicYear.id,
+  );
+  const latestPerformance = performanceRecords
+    .filter((record) => record.schoolId === schoolInfo?.id)
+    .sort((a, b) => b.year.localeCompare(a.year))[0];
+  const subjectResults = latestPerformance
+    ? performanceSubjects.filter(
+        (subject) =>
+          subject.performanceRecordId === latestPerformance.id &&
+          subject.averageScore !== null,
+      )
+    : [];
+  const bestSubject = [...subjectResults].sort(
+    (a, b) => (b.averageScore ?? 0) - (a.averageScore ?? 0),
+  )[0];
   const fields: EditField[] =
     active === "Schools"
       ? [
@@ -87,6 +140,7 @@ export function EditRecordDialog({
         { label: "UIC code", name: "uicCode" },
         { label: "KNEC code", name: "knecCode" },
         { label: "TSC code", name: "tscCode" },
+        { label: "School logo file", name: "filePath" },
         { label: "Registration number", name: "regNumber" },
         { label: "Official school name", name: "officialName" },
         { label: "Display name", name: "displayName" },
@@ -198,12 +252,7 @@ export function EditRecordDialog({
                   ? [
                     { label: "Ward name", name: "wardName" },
                     { label: "Ward code", name: "wardCode" },
-                    { label: "County", name: "county" },
-                    { label: "County code", name: "countyCode" },
-                    { label: "Sub-County", name: "subCounty" },
-                    { label: "Sub-County code", name: "subCountyCode" },
-                    { label: "Constituency", name: "constituency" },
-                    { label: "Constituency code", name: "constituencyCode" },
+                    { label: "Sub-County", name: "subCountyId", kind: "select" },
                   ]
                   : ["Report type", "Reporting period", "Description"].map(
                     (label) => ({ label, name: label }),
@@ -214,9 +263,10 @@ export function EditRecordDialog({
       const values: Record<string, string> = {
         schoolCode: schoolInfo.schoolCode ?? "",
         uicCode: schoolInfo.uicCode ?? "",
-        knecCode: "",
-        tscCode: "",
-        regNumber: "",
+        knecCode: schoolInfo.knecCode ?? "",
+        tscCode: schoolInfo.tscCode ?? "",
+        filePath: schoolInfo.logoPath ?? "",
+        regNumber: schoolInfo.registrationNumber ?? "",
         officialName: schoolInfo.officialName,
         displayName: schoolInfo.displayName,
         institutionType: getSchoolClassification(schoolInfo),
@@ -226,10 +276,10 @@ export function EditRecordDialog({
         ownershipType: getSchoolOwnership(schoolInfo),
         genderType: schoolInfo.genderType,
         boardingType: schoolInfo.boardingType,
-        titleDeed: getSchoolTitleDeed(),
-        county: schoolInfo.county,
-        subCounty: schoolInfo.subCounty,
-        ward: schoolInfo.ward ?? "",
+        titleDeed: getSchoolTitleDeed(schoolInfo),
+        county: schoolInfo.county ?? "",
+        subCounty: schoolInfo.subCounty ?? "",
+        ward: schoolInfo.wardId ?? "",
         location: schoolInfo.location ?? "",
         address: schoolInfo.address ?? "",
         phone: schoolInfo.phone ?? "",
@@ -238,7 +288,7 @@ export function EditRecordDialog({
         longitude: String(schoolInfo.longitude ?? ""),
         sne: schoolInfo.sne,
         isActive: schoolInfo.isActive ? "Active" : "Inactive",
-        dataConfidence: schoolInfo.dataConfidence,
+        dataConfidence: schoolInfo.dataConfidence ?? "",
       };
 
       return values[field.name] ?? "";
@@ -247,38 +297,24 @@ export function EditRecordDialog({
     if (active === "Ward") {
       const values: Record<string, string> = {
         wardName: wardInfo?.wardName ?? item,
-        wardCode: wardInfo?.wardCode ?? "",
-        county: wardInfo?.county ?? "Kilifi",
-        countyCode: wardInfo?.countyCode ?? "003",
-        subCounty: wardInfo?.subCounty ?? "Rabai",
-        subCountyCode: wardInfo?.subCountyCode ?? "014",
-        constituency: wardInfo?.constituency ?? "Rabai",
-        constituencyCode: wardInfo?.constituencyCode ?? "014",
+        wardCode: wardInfo?.wardCode ?? wardCode ?? "",
+        subCountyId: wardInfo?.subCountyId ?? "",
       };
 
       return values[field.name] ?? "";
     }
 
     if (active === "Staff") {
-      const staffEmail = staffInfo
-        ? `${staffInfo.name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, ".")
-          .replace(/^\.+|\.+$/g, "")}@school.example`
-        : "";
       const values: Record<string, string> = {
         "Full name": staffInfo?.name ?? item,
-        Designation: staffInfo?.role ?? "Teacher",
-        "Assigned school": "Mwangaza Primary School",
-        "Employment type": "Permanent",
-        Employer: "Goverment_Tsc",
-        "TSC No.":
-          staffIndex >= 0
-            ? `TSC-${String(staffIndex + 12).padStart(4, "0")}`
-            : "",
-        "Email address": staffEmail,
+        Designation: staffInfo?.role ?? "",
+        "Assigned school": staffInfo?.assignedSchool ?? "",
+        "Employment type": staffInfo?.employmentType ?? "",
+        Employer: staffInfo?.employer ?? "",
+        "TSC No.": staffInfo?.tscNo ?? "",
+        "Email address": staffInfo?.email ?? "",
         "Phone number": staffInfo?.phone ?? "",
-        "Date joined": "2023-01-15",
+        "Date joined": staffInfo?.dateJoined ?? "",
       };
 
       return values[field.label] ?? "";
@@ -287,29 +323,19 @@ export function EditRecordDialog({
     if (active === "School Performance") {
       const values: Record<string, string> = {
         school: item,
-        assessment: item.toLowerCase().includes("junior")
-          ? "KJSEA"
-          : item.toLowerCase().includes("secondary") ||
-            item.toLowerCase().includes("senior")
-            ? "KCSE"
-            : "KPSEA",
-        academicYear: "2026",
-        level: item.toLowerCase().includes("junior")
-          ? "Junior Secondary"
-          : item.toLowerCase().includes("secondary") ||
-            item.toLowerCase().includes("senior")
-            ? "Senior School"
-            : "Primary",
-        knecCode: "04122123",
-        candidates: "50",
-        meanScore: "9.30",
-        subjects: "12",
-        bestSubject: "Mathematics",
-        exceedingCount: "12",
-        meetingCount: "24",
-        approachingCount: "10",
-        belowCount: "4",
-        notes: "Latest assessment record",
+        assessment: latestPerformance?.assessmentName ?? "",
+        academicYear: latestPerformance?.year ?? currentAcademicYear.name,
+        level: schoolInfo ? getSchoolLevel(schoolInfo) : "",
+        knecCode: schoolInfo?.knecCode ?? "",
+        candidates: String(latestPerformance?.candidates ?? ""),
+        meanScore: String(latestPerformance?.averageScore ?? ""),
+        subjects: String(subjectResults.length),
+        bestSubject: bestSubject?.subject ?? "",
+        exceedingCount: "",
+        meetingCount: "",
+        approachingCount: "",
+        belowCount: "",
+        notes: "",
       };
 
       return values[field.name] ?? "";
@@ -320,17 +346,19 @@ export function EditRecordDialog({
       : field.label === "Full name"
         ? item
         : field.label === "Academic year"
-          ? "2026"
-          : field.label === "Male learners"
-            ? "32"
-            : field.label === "Female learners"
-              ? "29"
+        ? currentAcademicYear.name
+        : field.label === "Male learners"
+          ? String(enrollmentRow?.male ?? "")
+          : field.label === "Female learners"
+            ? String(enrollmentRow?.female ?? "")
+            : field.label === "Grade"
+              ? enrollmentRow?.grade ?? ""
               : field.label === "Term"
-                ? "Term 1"
+                ? terms.find((term) => term.id === enrollmentRow?.termId)?.name ?? ""
                 : field.label === "Employment type"
-                  ? "Permanent"
-                  : field.label === "Status"
-                    ? "Active"
+                  ? staffInfo?.employmentType ?? ""
+                : field.label === "Status"
+                  ? staffInfo?.status ?? ""
                     : field.label === "Ward"
                       ? item
                       : "";
@@ -353,6 +381,46 @@ export function EditRecordDialog({
     },
   });
   const watchedFields = watch("fields") as Record<string, string | undefined>;
+  const saveRecord = async (
+    values:
+      | EditRecordFormValues
+      | EditSchoolRecordFormValues
+      | EditWardRecordFormValues,
+  ) => {
+    setSaveError("");
+    setSaving(true);
+    try {
+      if (active === "Ward") {
+        if (!onSaveWard) {
+          throw new Error("Ward changes cannot be saved because no database handler is available.");
+        }
+        await onSaveWard(values as EditWardRecordFormValues);
+        window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      } else if (active === "Schools") {
+        if (!onSaveSchool || !schoolInfo) {
+          throw new Error("School changes cannot be saved because the school database handler is unavailable.");
+        }
+        await onSaveSchool(
+          schoolInfo.id,
+          {
+            ...(values as EditSchoolRecordFormValues),
+            fields: {
+              ...(values as EditSchoolRecordFormValues).fields,
+              filePath: selectedLogoPath,
+            },
+          },
+        );
+        window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      }
+      setSaved(true);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Unable to save the record.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
   const schoolSelectOptions: Record<
     string,
     { label: string; value: string }[]
@@ -367,11 +435,15 @@ export function EditRecordDialog({
     county: [{ label: "Kilifi", value: "Kilifi" }],
     subCounty: [{ label: "Rabai", value: "Rabai" }],
     ward: [
-      { label: "Not mapped", value: "" },
-      ...rabaiWards.map((ward) => ({
-        label: ward.wardName,
-        value: ward.wardName,
-      })),
+      { label: "Select a ward", value: "" },
+      ...wardOptions
+        .filter(
+          (ward) => ward.isActive || ward.id === schoolInfo?.wardId,
+        )
+        .map((ward) => ({
+          label: `${ward.name}${ward.subCounty ? ` - ${ward.subCounty}` : ""}`,
+          value: ward.id,
+        })),
     ],
     sne: [
       { label: "No", value: "NO" },
@@ -428,21 +500,57 @@ export function EditRecordDialog({
             <div>
               <Check />
             </div>
-            <h3>Changes saved locally</h3>
-            <p>The updated record is queued for synchronization.</p>
+            <h3>{onSaveSchool || onSaveWard ? "Changes saved" : "Changes saved locally"}</h3>
+            <p>
+              {onSaveSchool
+                ? "The updated school record has been saved to the database."
+                : onSaveWard
+                  ? "The updated ward record has been saved to the database."
+                  : "The updated record is queued for synchronization."}
+            </p>
             <button className="outline-button" onClick={onClose}>
               Done
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(() => setSaved(true))}>
+          <form onSubmit={handleSubmit(saveRecord)}>
             <div className="form-section">
               <h3>Record information</h3>
               <div className="form-grid">
                 {fields.map((field) => (
                   <label key={field.name}>
                     {field.label}
-                    {active === "Schools" && schoolSelectOptions[field.name] ? (
+                    {active === "Schools" && field.name === "filePath" ? (
+                      <div className="school-file-picker">
+                        <input
+                          value={selectedLogoPath}
+                          readOnly
+                          placeholder="No file selected"
+                        />
+                        <button
+                          className="outline-button"
+                          type="button"
+                          onClick={async () => {
+                            if (!onChooseFile) return;
+                            setSaveError("");
+                            try {
+                              const filePath = await onChooseFile();
+                              if (filePath) {
+                                setSelectedLogoPath(filePath);
+                              }
+                            } catch (error) {
+                              setSaveError(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Unable to select the file.",
+                              );
+                            }
+                          }}
+                        >
+                          Choose file
+                        </button>
+                      </div>
+                    ) : active === "Schools" && schoolSelectOptions[field.name] ? (
                       <select {...register(`fields.${field.name}`)}>
                         {schoolSelectOptions[field.name].map((option) => (
                           <option key={option.value} value={option.value}>
@@ -459,6 +567,22 @@ export function EditRecordDialog({
                           </option>
                         ))}
                       </select>
+                    ) : active === "Ward" &&
+                      field.name === "subCountyId" ? (
+                      <select {...register("fields.subCountyId")}>
+                        <option value="">Select a sub-county</option>
+                        {subCounties
+                          .filter(
+                            (subCounty) =>
+                              subCounty.isActive ||
+                              subCounty.id === wardInfo?.subCountyId,
+                          )
+                          .map((subCounty) => (
+                            <option key={subCounty.id} value={subCounty.id}>
+                              {subCounty.subCounty ?? "Unnamed sub-county"}
+                            </option>
+                          ))}
+                      </select>
                     ) : field.kind === "textarea" ? (
                       <textarea
                         {...register(`fields.${field.name}`)}
@@ -471,9 +595,16 @@ export function EditRecordDialog({
                       <select {...register(`fields.${field.name}`)}>
                         {field.label === "Term" ? (
                           <>
-                            <option>Term 1</option>
-                            <option>Term 2</option>
-                            <option>Term 3</option>
+                            {terms
+                              .filter(
+                                (term) =>
+                                  term.academicYearId === currentAcademicYear.id,
+                              )
+                              .map((term) => (
+                                <option key={term.id} value={term.name}>
+                                  {term.name}
+                                </option>
+                              ))}
                           </>
                         ) : field.label === "Employment type" ? (
                           <>
@@ -537,6 +668,11 @@ export function EditRecordDialog({
                 ))}
               </div>
             </div>
+            {saveError && (
+              <p className="form-error" role="alert">
+                {saveError}
+              </p>
+            )}
             <div className="dialog-footer">
               <button
                 className="outline-button"
@@ -545,8 +681,12 @@ export function EditRecordDialog({
               >
                 Cancel
               </button>
-              <Button className="modal-primary-button" type="submit">
-                Save changes
+              <Button
+                className="modal-primary-button"
+                type="submit"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save changes"}
               </Button>
             </div>
           </form>

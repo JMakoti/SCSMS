@@ -88,8 +88,10 @@ export function getSchoolOwnership(school: RabaiSchool): SchoolOwnership {
   return "Goverment";
 }
 
-export function getSchoolTitleDeed() {
-  return "NO" as const;
+export function getSchoolTitleDeed(school?: RabaiSchool) {
+  if (!school) return "";
+  const value = school.titleDeed?.toUpperCase();
+  return value === "YES" || value === "NO" ? value : "";
 }
 
 export function formatSchoolClassification(value: string) {

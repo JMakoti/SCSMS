@@ -1,5 +1,6 @@
-import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
 import { generateItemStaticParams } from "../../../static-params";
+import { Suspense } from "react";
+import WardDetailRoutePage from "./ward-detail-route-page";
 
 export function generateStaticParams() {
   return generateItemStaticParams("Ward");
@@ -13,6 +14,8 @@ export default async function WardDetailPage({
   const { item } = await params;
 
   return (
-    <RecordDetailRoutePage active="Ward" item={decodeURIComponent(item)} />
+    <Suspense fallback={<div className="content">Loading ward record...</div>}>
+      <WardDetailRoutePage item={decodeURIComponent(item)} />
+    </Suspense>
   );
 }

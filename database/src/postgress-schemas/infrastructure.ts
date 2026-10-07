@@ -1,7 +1,7 @@
 import { randomUUID } from "./uuid";
 import { relations, sql } from "drizzle-orm";
 import { index, integer, pgTable, real, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
-import { academicYears } from "./academicyear";
+import { academicYears, terms } from "./academicyear";
 import { schools } from "./schools";
 
 export const infrastructureSnapshots = pgTable(
@@ -69,6 +69,9 @@ export const infrastructureProjects = pgTable(
     academicYearId: varchar("academic_year_id", { length: 36 })
       .notNull()
       .references(() => academicYears.id, { onDelete: "cascade" }),
+    termId: varchar("term_id", { length: 36 }).references(() => terms.id, {
+      onDelete: "set null",
+    }),
     projectName: text("project_name").notNull(),
     projectType: text("project_type").notNull(),
     projectContractor:text("project_contractor").notNull(),
@@ -130,6 +133,10 @@ export const infrastructureProjectRelations = relations(
     academicYear: one(academicYears, {
       fields: [infrastructureProjects.academicYearId],
       references: [academicYears.id],
+    }),
+    term: one(terms, {
+      fields: [infrastructureProjects.termId],
+      references: [terms.id],
     }),
   }),
 );

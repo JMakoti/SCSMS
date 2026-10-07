@@ -17,6 +17,7 @@ Desktop application for the Sub-County School Management System. This app combin
 - 🪟 Tauri 2 for the native desktop shell.
 - 🦀 Rust and `sqlx` for local SQLite access.
 - 🌧️ Drizzle ORM in `sqlite-proxy` mode for typed frontend database queries.
+- Native Tauri file dialogs for selecting optional school logo files.
 - 📦 Shared workspace packages from `packages/` and `database/`.
 
 ## 🗂️ Folder Layout
@@ -63,22 +64,12 @@ On startup, the Tauri backend:
 
 1. Creates the SQLite connection pool.
 2. Runs the initial schema migration.
-3. Seeds required initial data.
+3. Seeds required initial records.
 4. Registers the database pool as Tauri managed state.
 
-Seeded local data includes:
-
-- 🏫 Rabai sub-county.
-- 🔐 `administrator` role.
-- 👤 `admin@scsms.go.ke` administrator user.
-
-The default fallback desktop seed password is:
-
-```text
-Admin@123
-```
-
-If `SCSMS_ADMIN_PASSWORD` is available in the environment, the seed uses that value instead.
+Startup inserts the Rabai sub-county and administrator role/user only when they do not already exist. The web app's PostgreSQL database is separate and is not automatically copied into desktop SQLite.
+School creation writes through `repository/school.ts`; an optional logo selected in the desktop dialog is copied into the Tauri app-data `school-logos` directory, and only its managed file path is stored in the school's `logo_path`.
+Creating a school also initializes zero-count enrollment rows for each grade in its level across Terms 1-3 of the current academic year. If no academic year exists, the current calendar year is created and activated first.
 
 ## 🛠️ Development
 

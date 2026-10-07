@@ -16,6 +16,7 @@
     "@scsms/features": "workspace:*",
     "@scsms/ui": "workspace:*",
     "@tauri-apps/api": "^2.12.1",
+    "@tauri-apps/plugin-dialog": "^2.8.1",
     "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.5",

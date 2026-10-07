@@ -1,7 +1,7 @@
 import { randomUUID } from "./uuid";
 import { relations, sql } from "drizzle-orm";
 import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { academicYears } from "./academicyear";
+import { academicYears, terms } from "./academicyear";
 import { schools } from "./schools";
 
 export const infrastructureSnapshots = sqliteTable(
@@ -69,6 +69,9 @@ export const infrastructureProjects = sqliteTable(
     academicYearId: text("academic_year_id")
       .notNull()
       .references(() => academicYears.id, { onDelete: "cascade" }),
+    termId: text("term_id").references(() => terms.id, {
+      onDelete: "set null",
+    }),
     projectName: text("project_name").notNull(),
     projectType: text("project_type").notNull(),
     projectContractor:text("project_contractor").notNull(),
@@ -130,6 +133,10 @@ export const infrastructureProjectRelations = relations(
     academicYear: one(academicYears, {
       fields: [infrastructureProjects.academicYearId],
       references: [academicYears.id],
+    }),
+    term: one(terms, {
+      fields: [infrastructureProjects.termId],
+      references: [terms.id],
     }),
   }),
 );

@@ -1,7 +1,7 @@
 import type {
   RabaiSchool,
-  RabaiWard,
   SchoolYearSample,
+  WardRecord,
 } from "../../types/enterprise";
 import { academicYears } from "./academic-years";
 
@@ -30,7 +30,7 @@ export const rabaiDatasetMetadata = {
   },
 } as const;
 
-export const rabaiWards: RabaiWard[] = [
+export const rabaiWards: WardRecord[] = [
   {
     wardName: "Mwawesa",
     wardCode: "0067",

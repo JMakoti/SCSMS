@@ -1,4 +1,4 @@
-import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
+import InfrastructureDetailDesktop from "./infrastructure-detail-desktop";
 import { generateItemStaticParams } from "../../../static-params";
 
 export function generateStaticParams() {
@@ -12,10 +12,5 @@ export default async function InfrastructureDetailPage({
 }) {
   const { item } = await params;
 
-  return (
-    <RecordDetailRoutePage
-      active="Infrastructure"
-      item={decodeURIComponent(item)}
-    />
-  );
+  return <InfrastructureDetailDesktop item={decodeURIComponent(item)} />;
 }

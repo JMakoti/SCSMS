@@ -18,10 +18,11 @@ import {
   schoolRegistrationStatusOptions,
   schoolTitleDeedOptions,
 } from "../schools/school-display";
-import { rabaiSchools, rabaiWards } from "../data/fixtures/rabai-schools";
-import { Check, X } from "lucide-react";
+import { useFeatureData } from "../data/feature-data-context";
+import { Check, Upload, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 export function AddContactDialog({ onClose }: { onClose: () => void }) {
+  const { schools } = useFeatureData();
   const [saved, setSaved] = useState(false);
   const { register, handleSubmit } = useForm<AddContactFormValues>({
     resolver: zodResolver(addContactSchema),
@@ -66,7 +67,7 @@ export function AddContactDialog({ onClose }: { onClose: () => void }) {
                     <option value="" disabled>
                       Select a school
                     </option>
-                    {[...rabaiSchools]
+                    {[...schools]
                       .sort((a, b) =>
                         a.displayName.localeCompare(b.displayName),
                       )
@@ -139,25 +140,83 @@ export function AddContactDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function AddSchoolDialog({ onClose }: { onClose: () => void }) {
+export function AddSchoolDialog({
+  onClose,
+  onSave,
+  onChooseFile,
+}: {
+  onClose: () => void;
+  onSave?: (values: AddSchoolFormValues) => Promise<void>;
+  onChooseFile?: () => Promise<string | null>;
+}) {
+  const { wardOptions } = useFeatureData();
+  const sortedWards = [...wardOptions].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const defaultWard = sortedWards[0];
   const [saved, setSaved] = useState(false);
-  const { register, handleSubmit } = useForm<AddSchoolFormValues>({
-    resolver: zodResolver(addSchoolSchema),
-    defaultValues: {
-      institutionType: "Regular",
-      registrationStatus: "REGISTERED",
-      level: "Primary",
-      ownershipType: "Goverment",
-      genderType: "MIXED",
-      boardingType: "DAY",
-      titleDeed: "NO",
-      county: "Kilifi",
-      subCounty: "Rabai",
-      ward: "Mwawesa",
-      sne: "NO",
-      isActive: "Active",
-    },
-  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<AddSchoolFormValues>({
+      resolver: zodResolver(addSchoolSchema),
+      defaultValues: {
+        institutionType: "Regular",
+        registrationStatus: "REGISTERED",
+        level: "Primary",
+        ownershipType: "Goverment",
+        genderType: "MIXED",
+        boardingType: "DAY",
+        titleDeed: "NO",
+        county: defaultWard?.county ?? "",
+        subCounty: defaultWard?.subCounty ?? "",
+        ward: defaultWard?.id ?? "",
+        sne: "NO",
+        isActive: "Active",
+      },
+    });
+  const selectedFilePath = watch("filePath");
+
+  const saveSchool = async (values: AddSchoolFormValues) => {
+    setSaveError("");
+    setSaving(true);
+    try {
+      if (!onSave) {
+        throw new Error("School database save is not configured.");
+      }
+      await onSave(values);
+      window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      window.dispatchEvent(new Event("scsms:academic-years-refresh"));
+      setSaved(true);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Unable to save the school.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const chooseSchoolFile = async () => {
+    if (!onChooseFile) return;
+    setSaveError("");
+    try {
+      const filePath = await onChooseFile();
+      if (filePath) {
+        setValue("filePath", filePath, { shouldDirty: true });
+      }
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Unable to select the file.",
+      );
+    }
+  };
+
   return (
     <div className="overlay" onClick={onClose}>
       <div className="form-dialog" onClick={(e) => e.stopPropagation()}>
@@ -176,25 +235,51 @@ export function AddSchoolDialog({ onClose }: { onClose: () => void }) {
             <div>
               <Check />
             </div>
-            <h3>School saved locally</h3>
+            <h3>School saved</h3>
             <p>
-              The record has been saved and added to the synchronization queue.
+              {onSave
+                ? "The school record has been saved to the database."
+                : "School database saving is not available in this app."}
             </p>
             <button className="outline-button" onClick={onClose}>
               Done
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(() => setSaved(true))}>
+          <form onSubmit={handleSubmit(saveSchool)}>
             <div className="form-section">
               <h3>Basic information</h3>
               <div className="form-grid">
+                <div className="form-grid-full school-logo-field">
+                  <span>School logo</span>
+                  <div className="school-file-picker">
+                    <input
+                      {...register("filePath")}
+                      value={selectedFilePath ?? ""}
+                      readOnly
+                      aria-label="Selected school logo file"
+                      placeholder="No logo file selected"
+                    />
+                    <button
+                      className="outline-button"
+                      type="button"
+                      onClick={chooseSchoolFile}
+                      disabled={!onChooseFile}
+                    >
+                      <Upload size={14} />
+                      Choose logo file
+                    </button>
+                  </div>
+                </div>
                 <label>
                   School code
                   <input
                     {...register("schoolCode")}
                     placeholder="School Code"
                   />
+                  {errors.schoolCode?.message && (
+                    <span className="form-error">{errors.schoolCode.message}</span>
+                  )}
                 </label>
                 <label>
                   UIC code
@@ -202,6 +287,9 @@ export function AddSchoolDialog({ onClose }: { onClose: () => void }) {
                     {...register("uicCode")}
                     placeholder="NEMIS/UIC Code"
                   />
+                  {errors.uicCode?.message && (
+                    <span className="form-error">{errors.uicCode.message}</span>
+                  )}
                 </label>
                 <label>
                   KNEC code
@@ -318,11 +406,29 @@ export function AddSchoolDialog({ onClose }: { onClose: () => void }) {
                 </label>
                 <label>
                   Ward
-                  <select {...register("ward")}>
-                    <option value="">Not mapped</option>
-                    {rabaiWards.map((ward) => (
-                      <option key={ward.wardCode} value={ward.wardName}>
-                        {ward.wardName}
+                  <select
+                    {...register("ward", {
+                      onChange: (event) => {
+                        const ward = sortedWards.find(
+                          (record) => record.id === event.target.value,
+                        );
+                        if (ward?.county) {
+                          setValue("county", ward.county, {
+                            shouldValidate: true,
+                          });
+                        }
+                        if (ward?.subCounty) {
+                          setValue("subCounty", ward.subCounty, {
+                            shouldValidate: true,
+                          });
+                        }
+                      },
+                    })}
+                  >
+                    <option value="">Select a ward</option>
+                    {sortedWards.map((ward) => (
+                      <option key={ward.id} value={ward.id}>
+                        {ward.name}
                       </option>
                     ))}
                   </select>
@@ -383,6 +489,11 @@ export function AddSchoolDialog({ onClose }: { onClose: () => void }) {
                 </label>
               </div>
             </div>
+            {saveError && (
+              <p className="form-error" role="alert">
+                {saveError}
+              </p>
+            )}
             <div className="dialog-footer">
               <button
                 className="outline-button"
@@ -391,11 +502,19 @@ export function AddSchoolDialog({ onClose }: { onClose: () => void }) {
               >
                 Cancel
               </button>
-              <button className="outline-button" type="submit">
+              <button
+                className="outline-button"
+                type="submit"
+                disabled={saving}
+              >
                 Save & Add Another
               </button>
-              <Button className="modal-primary-button" type="submit">
-                Save School
+              <Button
+                className="modal-primary-button"
+                type="submit"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save School"}
               </Button>
             </div>
           </form>

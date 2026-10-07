@@ -37,6 +37,7 @@ export function AcademicYearSelector({
   } = useAcademicYear();
   const [transitionOpen, setTransitionOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const defaults = getNextAcademicYearDefaults(activeAcademicYear.name);
   const [form, setForm] = useState({
     closingYearId: activeAcademicYear.id,
@@ -59,7 +60,7 @@ export function AcademicYearSelector({
     setTransitionOpen(true);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!form.name.trim() || !form.startDate || !form.endDate) {
       setError("Enter the academic year name and active dates.");
@@ -70,8 +71,19 @@ export function AcademicYearSelector({
       return;
     }
 
-    transitionAcademicYear(form);
-    setSaved(true);
+    setSaving(true);
+    try {
+      await transitionAcademicYear(form);
+      setSaved(true);
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "The academic year could not be created.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const activeAndOpenYears = academicYears.filter((year) => !year.isClosed);
@@ -248,8 +260,12 @@ export function AcademicYearSelector({
                   >
                     Cancel
                   </button>
-                  <button className="modal-primary-button" type="submit">
-                    Create and activate year
+                  <button
+                    className="modal-primary-button"
+                    type="submit"
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Create and activate year"}
                   </button>
                 </div>
               </form>

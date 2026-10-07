@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
+import { createPortal } from "react-dom";
 import { createDeleteConfirmationSchema } from "../schemas/delete-confirmation-schema";
 
 export function ConfirmDeleteDialog({
@@ -12,11 +13,13 @@ export function ConfirmDeleteDialog({
   confirmCode = item,
   onCancel,
   onConfirm,
+  error,
 }: {
   item: string;
   confirmCode?: string;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
+  error?: string;
 }) {
   const deleteConfirmationSchema = useMemo(
     () => createDeleteConfirmationSchema(confirmCode),
@@ -32,73 +35,112 @@ export function ConfirmDeleteDialog({
     defaultValues: { confirmationCode: "" },
     mode: "onChange",
   });
+  const [isMounted, setIsMounted] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const confirmDelete = async () => {
+    setDeleteError("");
+    setIsDeleting(true);
+    try {
+      await onConfirm();
+    } catch (confirmError) {
+      setDeleteError(
+        confirmError instanceof Error
+          ? confirmError.message
+          : "The record could not be deleted.",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
-  return (
-    <div
-      className="fixed inset-0 z-[250] grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm"
-      role="presentation"
-      onClick={onCancel}
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!isMounted || !dialog) return;
+
+    dialog.showModal();
+    return () => dialog.close();
+  }, [isMounted]);
+
+  const isDarkMode =
+    isMounted &&
+    document.querySelector(".dark-theme") !== null;
+
+  if (!isMounted) return null;
+
+  return createPortal(
+    <dialog
+      ref={dialogRef}
+      className={`confirm-delete-backdrop${isDarkMode ? " is-dark" : ""}`}
+      onCancel={(event) => {
+        event.preventDefault();
+        onCancel();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.26)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_20px_70px_rgba(0,0,0,0.45)]"
-        role="dialog"
-        aria-modal="true"
+        className="confirm-delete-dialog"
         aria-labelledby="delete-dialog-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start gap-3">
-          <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-300">
-            <Trash2 className="size-4" />
+        <div className="confirm-delete-heading">
+          <div className="confirm-delete-icon">
+            <Trash2 size={17} />
           </div>
           <div>
-            <h2
-              id="delete-dialog-title"
-              className="text-base font-bold text-slate-900 dark:text-slate-50"
-            >
-              Delete {item}?
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <h2 id="delete-dialog-title">Delete {item}?</h2>
+            <p>
               This action cannot be undone. Type the confirmation code to
               continue.
             </p>
           </div>
         </div>
-        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-950/40">
-          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+        <div className="confirm-delete-code">
+          <span>
             Confirmation code
           </span>
-          <strong className="mt-1 block font-mono text-sm font-bold text-slate-800 dark:text-slate-100">
-            {confirmCode}
-          </strong>
+          <strong>{confirmCode}</strong>
         </div>
-        <form onSubmit={handleSubmit(onConfirm)}>
-          <label className="mt-4 grid gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+        <form onSubmit={handleSubmit(confirmDelete)}>
+          {(error || deleteError) && (
+            <p className="confirm-delete-error" role="alert">
+              {error || deleteError}
+            </p>
+          )}
+          <label className="confirm-delete-label">
             Type code
             <input
               autoFocus
               {...register("confirmationCode")}
               placeholder={confirmCode}
-              className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm font-semibold text-slate-800 outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-red-950"
             />
           </label>
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="confirm-delete-actions">
             <button
               type="button"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="confirm-delete-cancel"
               onClick={onCancel}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-xs font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
-              disabled={!isValid}
+              className="confirm-delete-submit"
+              disabled={!isValid || isDeleting}
             >
-              Delete
+              {isDeleting ? "Deleting..." : "Delete"}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </dialog>,
+    document.body,
   );
 }

@@ -30,26 +30,18 @@ import { useAcademicYear } from "../academic-years/academic-year-context";
 import StatusBadge from "../ui/status-badge";
 import SchoolContactsContent from "../pages/contacts-page";
 import InfrastructureContent from "../pages/infrastructure-page";
-import PerformanceContent, {
-  getSchoolAssessment,
-} from "../pages/performance-page";
+import PerformanceContent from "../pages/performance-page";
 import { EnrollmentGradeTable } from "../pages/enrollment-page";
-import {
-  getRabaiSchoolsByWard,
-  rabaiSchools,
-  rabaiSchoolYears,
-  rabaiWards,
-} from "../data/fixtures/rabai-schools";
-import { getReportDetail } from "../data/fixtures/reports";
-import { staffRecords } from "../data/fixtures/staff";
-import { infrastructureFacilityRows } from "../data/fixtures/infrastructure";
-import { academicYears } from "../data/fixtures/academic-years";
+import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
+import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
+import { useFeatureData, type FeatureData, type FeatureReport } from "../data/feature-data-context";
 import { ExportMenu } from "../ui/export-menu";
 
 function WardSchoolsTab({ ward }: { ward: string }) {
   const { currentAcademicYear } = useAcademicYear();
+  const { schools, schoolYears } = useFeatureData();
   const [searchQuery, setSearchQuery] = useState("");
-  const wardSchools = getRabaiSchoolsByWard(ward);
+  const wardSchools = schools.filter((school) => school.ward === ward);
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredSchools = normalizedQuery
     ? wardSchools.filter((school) =>
@@ -87,7 +79,7 @@ function WardSchoolsTab({ ward }: { ward: string }) {
       </div>
       <div className="module-rows">
         {filteredSchools.map((school) => {
-          const yearRecord = rabaiSchoolYears.find(
+          const yearRecord = schoolYears.find(
             (record) =>
               record.schoolId === school.id &&
               record.academicYearId === currentAcademicYear.id,
@@ -104,9 +96,8 @@ function WardSchoolsTab({ ward }: { ward: string }) {
                   {school.schoolCode ?? "No code"} -{" "}
                   {school.institutionType.replaceAll("_", " ")} -{" "}
                   {school.ownershipType} -{" "}
-                  {(yearRecord?.studentCount ?? 0).toLocaleString()} demo
-                  learners - {(yearRecord?.teacherCount ?? 0).toLocaleString()}{" "}
-                  demo teachers
+                  {(yearRecord?.studentCount ?? 0).toLocaleString()} learners -{" "}
+                  {(yearRecord?.teacherCount ?? 0).toLocaleString()} teachers
                 </span>
               </div>
               <StatusBadge status={school.isActive ? "Active" : "Inactive"} />
@@ -155,35 +146,40 @@ function formatSchoolValue(value: string | null | undefined) {
     : "Not provided";
 }
 
-function getSchoolYear(schoolId: string, academicYearId = "ay-2026") {
+function getSchoolYear(
+  data: FeatureData,
+  schoolId: string,
+  academicYearId: string,
+) {
   return (
-    rabaiSchoolYears.find(
+    data.schoolYears.find(
       (record) =>
         record.schoolId === schoolId &&
         record.academicYearId === academicYearId,
     ) ??
-    rabaiSchoolYears.find((record) => record.schoolId === schoolId) ??
+    data.schoolYears.find((record) => record.schoolId === schoolId) ??
     null
   );
 }
 
 function getReportDataset(
+  data: FeatureData,
   reportKey: string,
   {
-    academicYearId = "ay-2026",
+    academicYearId,
     ward = "All Wards",
-  }: { academicYearId?: string; ward?: string } = {},
+  }: { academicYearId: string; ward?: string },
 ) {
-  const allSchools = [...rabaiSchools].sort((a, b) =>
+  const allSchools = [...data.schools].sort((a, b) =>
     a.displayName.localeCompare(b.displayName),
   );
   const sortedSchools = allSchools
     .filter((school) => ward === "All Wards" || school.ward === ward)
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
-  const schoolRows = sortedSchools.map((school, index) => {
-    const year = getSchoolYear(school.id, academicYearId);
+  const schoolRows = sortedSchools.map((school) => {
+    const year = getSchoolYear(data, school.id, academicYearId);
     return [
-      school.schoolCode ?? `SCH-${String(index + 1).padStart(4, "0")}`,
+      school.schoolCode ?? "Not provided",
       school.displayName,
       formatSchoolValue(school.institutionType),
       formatSchoolValue(school.ownershipType),
@@ -196,18 +192,15 @@ function getReportDataset(
 
   if (reportKey === "enrollment") {
     const rows = sortedSchools.map((school) => {
-      const year = getSchoolYear(school.id, academicYearId);
-      const total = year?.studentCount ?? 0;
-      const boys = Math.round(total * 0.51);
-      const girls = total - boys;
+      const year = getSchoolYear(data, school.id, academicYearId);
       return [
         school.displayName,
         formatSchoolValue(school.institutionType),
         school.ward ?? "Not mapped",
-        String(boys),
-        String(girls),
-        String(total),
-        year?.status === "CLOSED" ? "Closed year" : "Active year",
+        String(year?.maleCount ?? 0),
+        String(year?.femaleCount ?? 0),
+        String(year?.studentCount ?? 0),
+        year ? "Recorded" : "No enrollment record",
       ];
     });
     return {
@@ -231,19 +224,17 @@ function getReportDataset(
   }
 
   if (reportKey === "staff") {
-    const rows = staffRecords
-      .map((staff, index) => {
-        const school = allSchools.length
-          ? allSchools[index % allSchools.length]
-          : null;
+    const rows = data.staff
+      .map((staff) => {
+        const school = allSchools.find((entry) => entry.id === staff.schoolId);
         return [
-          `STF-${String(index + 12).padStart(3, "0")}`,
+          staff.id,
           staff.name,
           school?.displayName ?? "Not assigned",
           school?.ward ?? "Not mapped",
           staff.role,
           staff.type,
-          index % 3 === 0 ? "Permanent" : "Contract",
+          staff.employmentType || "Not recorded",
           staff.status,
         ];
       })
@@ -271,25 +262,19 @@ function getReportDataset(
 
   if (reportKey === "infrastructure") {
     return {
-      headers: ["Facility", "Available", "Good", "Needs Repair", "Status"],
-      rows: infrastructureFacilityRows.map((row) => [
-        row.facility,
-        row.available,
-        row.good,
-        row.needsRepair,
+      headers: ["Project", "School", "Year", "Term", "Status"],
+      rows: data.infrastructureProjects.map((row) => [
+        row.name,
+        row.school,
+        row.year,
+        row.term,
         row.status,
       ]),
       metricValues: [
-        infrastructureFacilityRows
-          .reduce((sum, row) => sum + Number(row.available), 0)
-          .toLocaleString(),
-        infrastructureFacilityRows
-          .reduce((sum, row) => sum + Number(row.good), 0)
-          .toLocaleString(),
-        infrastructureFacilityRows
-          .reduce((sum, row) => sum + Number(row.needsRepair), 0)
-          .toLocaleString(),
-        infrastructureFacilityRows
+        data.infrastructureProjects.length.toLocaleString(),
+        data.infrastructureFacilities.reduce((sum, row) => sum + row.available, 0).toLocaleString(),
+        data.infrastructureFacilities.reduce((sum, row) => sum + row.needsRepair, 0).toLocaleString(),
+        data.infrastructureProjects
           .filter((row) => row.status === "Completed")
           .length.toLocaleString(),
       ],
@@ -305,7 +290,7 @@ function getReportDataset(
         (school) => school.ward === ward,
       );
       const yearRows = wardSchools
-        .map((school) => getSchoolYear(school.id, academicYearId))
+        .map((school) => getSchoolYear(data, school.id, academicYearId))
         .filter(Boolean);
       const students = yearRows.reduce(
         (sum, row) => sum + (row?.studentCount ?? 0),
@@ -315,12 +300,17 @@ function getReportDataset(
         (sum, row) => sum + (row?.teacherCount ?? 0),
         0,
       );
+      const schoolIds = new Set(wardSchools.map((school) => school.id));
+      const nonTeaching = data.staff.filter(
+        (member) =>
+          schoolIds.has(member.schoolId) && member.type === "Non-teaching",
+      ).length;
       return [
         ward ?? "Not mapped",
         String(wardSchools.length),
         students.toLocaleString(),
         teaching.toLocaleString(),
-        Math.round(teaching * 0.22).toLocaleString(),
+        nonTeaching.toLocaleString(),
       ];
     });
     return {
@@ -421,7 +411,7 @@ function ReportPreviewBody({
   dataset,
   selectedWard,
 }: {
-  report: ReturnType<typeof getReportDetail>;
+  report: FeatureReport;
   dataset: ReturnType<typeof getReportDataset>;
   selectedWard: string;
 }) {
@@ -445,10 +435,13 @@ function ReportPreviewBody({
     1,
     ...wardDistribution.map(([, count]) => count),
   );
-  const visualTitle =
-    report.key === "school-register"
-      ? "Schools by ward"
-      : report.visualizations[0];
+  const visualTitle = `${report.title} summary`;
+  const metricLabels = [
+    "Records",
+    "Schools",
+    "Students",
+    "Staff",
+  ];
 
   useEffect(() => {
     setPage(1);
@@ -457,7 +450,7 @@ function ReportPreviewBody({
   return (
     <div className="report-preview-body">
       <div className="report-stat-grid">
-        {report.metrics.slice(0, 4).map((metric, index) => (
+        {metricLabels.map((metric, index) => (
           <div className="report-stat-card" key={metric}>
             <span>{metric}</span>
             <strong>{dataset.metricValues[index] ?? "0"}</strong>
@@ -535,7 +528,7 @@ function ReportPreviewBody({
         </div>
         <div className="report-visual-card">
           <h3>{visualTitle}</h3>
-          {report.key === "school-register" ? (
+          {report.key === "school-register" || report.key === "ward-summary" ? (
             <div className="report-ward-chart">
               {wardDistribution.map(([ward, count]) => (
                 <span key={ward}>
@@ -553,21 +546,39 @@ function ReportPreviewBody({
             </div>
           ) : report.key === "data-quality" ? (
             <div className="report-progress-ring">
-              <strong>92%</strong>
+              <strong>
+                {dataset.metricValues.length
+                  ? `${Math.round(
+                      dataset.metricValues.reduce(
+                        (sum, value) =>
+                          sum +
+                          Number(String(value).replace("%", "")),
+                        0,
+                      ) / dataset.metricValues.length,
+                    )}%`
+                  : "0%"}
+              </strong>
               <span>Overall Quality</span>
             </div>
-          ) : report.visualizations[0]?.toLowerCase().includes("bar") ? (
+          ) : dataset.metricValues.length > 0 ? (
             <div className="report-bar-preview">
-              {[82, 64, 74, 58, 91].map((value, index) => (
-                <span key={value} style={{ height: `${value}%` }}>
+              {dataset.metricValues.slice(0, 5).map((value, index) => {
+                const numberValue = Number(String(value).replace(/,/g, "").replace("%", ""));
+                const maxValue = Math.max(
+                  1,
+                  ...dataset.metricValues.map((entry) =>
+                    Number(String(entry).replace(/,/g, "").replace("%", "")),
+                  ),
+                );
+                return <span key={`${value}-${index}`} style={{ height: `${Math.max(8, (numberValue / maxValue) * 100)}%` }}>
                   <i>{index + 1}</i>
-                </span>
-              ))}
+                </span>;
+              })}
             </div>
           ) : (
             <div className="report-donut-preview">
-              <strong>{report.key === "school-type" ? "76%" : "68%"}</strong>
-              <span>{report.visualizations[0]}</span>
+              <strong>0</strong>
+              <span>No data</span>
             </div>
           )}
         </div>
@@ -577,28 +588,26 @@ function ReportPreviewBody({
 }
 
 function TrendsTab({ school }: { school: string }) {
-  const assessment = getSchoolAssessment(school);
-  const values =
-    assessment === "KCSE"
-      ? [6.4, 6.7, 7, 7.3]
-      : assessment === "KJSEA"
-        ? [57, 61, 65, 69]
-        : [60, 64, 68, 72];
-  const chartData = values.map((mean, index) => ({
-    year: String(2023 + index),
-    mean,
-  }));
-  const latest = values[values.length - 1];
-  const previous = values[values.length - 2] ?? latest;
+  const { performanceRecords } = useFeatureData();
+  const schoolRecords = performanceRecords
+    .filter((record) => record.school === school)
+    .sort((a, b) => a.year.localeCompare(b.year));
+  const assessment = schoolRecords[0]?.assessmentType || "Assessment";
+  const chartData = schoolRecords
+    .filter((record) => record.averageScore !== null)
+    .map((record) => ({
+      year: record.year,
+      mean: record.averageScore ?? 0,
+    }));
+  const latest = chartData[chartData.length - 1]?.mean ?? 0;
+  const previous = chartData[chartData.length - 2]?.mean ?? latest;
   const change = latest - previous;
-  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const scoreUnit = assessment === "KCSE" ? "points" : "%";
-  const formattedChange =
-    assessment === "KCSE" ? change.toFixed(1) : `${Math.round(change)}%`;
-  const formattedAverage =
-    assessment === "KCSE" ? average.toFixed(1) : `${Math.round(average)}%`;
-  const formattedLatest =
-    assessment === "KCSE" ? latest.toFixed(1) : `${Math.round(latest)}%`;
+  const average = chartData.length
+    ? chartData.reduce((sum, value) => sum + value.mean, 0) / chartData.length
+    : 0;
+  const formattedChange = change.toFixed(1);
+  const formattedAverage = average.toFixed(1);
+  const formattedLatest = latest.toFixed(1);
 
   return (
     <section className="panel detail-panel performance-overview performance-overview-light">
@@ -622,9 +631,9 @@ function TrendsTab({ school }: { school: string }) {
             [
               "Year change",
               `${change >= 0 ? "+" : ""}${formattedChange}`,
-              `Measured in ${scoreUnit}`,
+              "Measured against the recorded assessment scale",
             ],
-            ["Four-year average", formattedAverage, "Across 2023-2026"],
+            ["Average", formattedAverage, `${chartData.length} recorded assessments`],
           ].map(([label, value, note]) => (
             <div className="trend-summary-card" key={label}>
               <span>{label}</span>
@@ -640,7 +649,9 @@ function TrendsTab({ school }: { school: string }) {
               Mean score
             </span>
             <b>
-              {chartData[0].year} - {chartData[chartData.length - 1].year}
+              {chartData.length
+                ? `${chartData[0].year} - ${chartData[chartData.length - 1].year}`
+                : "No assessment history"}
             </b>
           </div>
           <div className="trend-chart-canvas h-[300px] w-full">
@@ -661,7 +672,7 @@ function TrendsTab({ school }: { school: string }) {
                   tickMargin={10}
                 />
                 <YAxis
-                  domain={assessment === "KCSE" ? [6, 8] : [50, 80]}
+                  domain={["auto", "auto"]}
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
@@ -702,14 +713,28 @@ function TrendsTab({ school }: { school: string }) {
 }
 
 function ReportInformationTab({ report }: { report: string }) {
-  const { currentAcademicYear } = useAcademicYear();
-  const detail = getReportDetail(report);
+  const { academicYears, currentAcademicYear } = useAcademicYear();
+  const featureData = useFeatureData();
+  const detail = featureData.reportTemplates.find(
+    (template) => template.key === report || template.title === report,
+  ) ?? {
+    id: "",
+    key: report,
+    title: report,
+    code: "",
+    category: "",
+    description: "",
+    frequency: "",
+    recordsIncluded: 0,
+    lastGenerated: null,
+    status: "Not configured",
+  };
   const SelectedIcon = getReportIcon(detail.key);
   const [selectedAcademicYearId, setSelectedAcademicYearId] = useState(
     currentAcademicYear.id,
   );
   const [selectedWard, setSelectedWard] = useState("All Wards");
-  const dataset = getReportDataset(detail.key, {
+  const dataset = getReportDataset(featureData, detail.key, {
     academicYearId: selectedAcademicYearId,
     ward: selectedWard,
   });
@@ -759,16 +784,16 @@ function ReportInformationTab({ report }: { report: string }) {
                   ))}
                 </select>
               )}
-              {detail.filters.includes("Ward") && (
+              {featureData.wards.length > 0 && (
                 <select
                   aria-label="Ward filter"
                   value={selectedWard}
                   onChange={(event) => setSelectedWard(event.target.value)}
                 >
                   <option value="All Wards">All Wards</option>
-                  {rabaiWards.map((ward) => (
-                    <option key={ward.wardCode} value={ward.wardName}>
-                      {ward.wardName}
+                  {featureData.wards.map((ward) => (
+                    <option key={ward.wardCode ?? ward.name} value={ward.name}>
+                      {ward.name}
                     </option>
                   ))}
                 </select>
@@ -804,14 +829,31 @@ export function DetailTabs({
   active,
   item,
   onTabChange,
+  onSaveEnrollmentGrade,
+  onSaveInfrastructureFacility,
 }: {
   active: string;
   item: string;
   onTabChange?: (tab: string) => void;
+  onSaveEnrollmentGrade?: (input: EnrollmentGradeSaveInput) => Promise<void>;
+  onSaveInfrastructureFacility?: (
+    input: InfrastructureFacilitySaveInput,
+  ) => Promise<void>;
 }) {
   const [tab, setTab] = useState("Overview");
-  const [term, setTerm] = useState("Term 1");
-  const assessmentTab = getSchoolAssessment(item);
+  const [termId, setTermId] = useState("");
+  const { currentAcademicYear } = useAcademicYear();
+  const { performanceRecords, academicYears, terms } = useFeatureData();
+  const currentYearTerms = terms.filter(
+    (entry) => entry.academicYearId === currentAcademicYear.id,
+  );
+  const selectedTerm =
+    currentYearTerms.find((entry) => entry.id === termId) ??
+    currentYearTerms[0] ??
+    null;
+  const assessmentTab =
+    performanceRecords.find((record) => record.school === item)
+      ?.assessmentName ?? "Assessment";
   useEffect(() => {
     if (
       active === "School Performance" &&
@@ -872,53 +914,73 @@ export function DetailTabs({
         <ReportInformationTab report={item} />
       )}
       {tab === "Infrastructure" && (
-        <InfrastructureContent detail school={item} />
+        <InfrastructureContent
+          detail
+          school={item}
+          onSaveFacility={onSaveInfrastructureFacility}
+        />
       )}
       {tab === "Contacts" && <SchoolContactsContent school={item} />}
       {tab === "Enrollment" && active === "Schools" && (
         <div className="enrollment-tab-content">
           <div className="term-cards">
-            {["Term 1", "Term 2", "Term 3"].map((termName) => (
+            {currentYearTerms.map((termRecord) => (
               <button
-                key={termName}
-                className={`term-card ${term === termName ? "active" : ""}`}
-                onClick={() => setTerm(termName)}
+                key={termRecord.id}
+                className={`term-card ${selectedTerm?.id === termRecord.id ? "active" : ""}`}
+                onClick={() => setTermId(termRecord.id)}
               >
                 <span className="term-card-check">
-                  {term === termName ? "✓" : ""}
+                  {selectedTerm?.id === termRecord.id ? "✓" : ""}
                 </span>
                 <span>
-                  <strong>{termName}</strong>
-                  <small>Academic Year 2026</small>
+                  <strong>{termRecord.name}</strong>
+                  <small>{currentAcademicYear.name}</small>
                 </span>
-                <b>{term === termName ? "Current" : "Select"}</b>
+                <b>{selectedTerm?.id === termRecord.id ? "Current" : "Select"}</b>
               </button>
             ))}
+            {currentYearTerms.length === 0 && (
+              <p>No terms are configured for {currentAcademicYear.name}.</p>
+            )}
           </div>
-          <EnrollmentGradeTable school={item} term={term} />
+          <EnrollmentGradeTable
+            school={item}
+            term={selectedTerm?.name ?? "All terms"}
+            termId={selectedTerm?.id}
+            onSaveGrade={onSaveEnrollmentGrade}
+          />
         </div>
       )}
       {tab === "Enrollment" && active !== "Schools" && (
         <div className="enrollment-tab-content">
           <div className="term-cards">
-            {["Term 1", "Term 2", "Term 3"].map((termName) => (
+            {currentYearTerms.map((termRecord) => (
               <button
-                key={termName}
-                className={`term-card ${term === termName ? "active" : ""}`}
-                onClick={() => setTerm(termName)}
+                key={termRecord.id}
+                className={`term-card ${selectedTerm?.id === termRecord.id ? "active" : ""}`}
+                onClick={() => setTermId(termRecord.id)}
               >
                 <span className="term-card-check">
-                  {term === termName ? "✓" : ""}
+                  {selectedTerm?.id === termRecord.id ? "✓" : ""}
                 </span>
                 <span>
-                  <strong>{termName}</strong>
-                  <small>Academic Year 2026</small>
+                  <strong>{termRecord.name}</strong>
+                  <small>{currentAcademicYear.name}</small>
                 </span>
-                <b>{term === termName ? "Current" : "Select"}</b>
+                <b>{selectedTerm?.id === termRecord.id ? "Current" : "Select"}</b>
               </button>
             ))}
+            {currentYearTerms.length === 0 && (
+              <p>No terms are configured for {currentAcademicYear.name}.</p>
+            )}
           </div>
-          <EnrollmentGradeTable school={item} term={term} />
+          <EnrollmentGradeTable
+            school={item}
+            term={selectedTerm?.name ?? "All terms"}
+            termId={selectedTerm?.id}
+            onSaveGrade={onSaveEnrollmentGrade}
+          />
         </div>
       )}
     </>

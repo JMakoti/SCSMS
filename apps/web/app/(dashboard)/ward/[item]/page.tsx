@@ -1,4 +1,4 @@
-import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
+import WardDetailRoutePage from "./ward-detail-route-page";
 
 export default async function WardDetailPage({
   params,
@@ -8,6 +8,6 @@ export default async function WardDetailPage({
   const { item } = await params;
 
   return (
-    <RecordDetailRoutePage active="Ward" item={decodeURIComponent(item)} />
+    <WardDetailRoutePage item={decodeURIComponent(item)} />
   );
 }

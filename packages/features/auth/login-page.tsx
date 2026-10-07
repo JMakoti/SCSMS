@@ -24,9 +24,11 @@ type LoginUser = {
 export function LoginPage({
   authenticate,
   onLogin,
+  errorMessage = "",
 }: {
   authenticate?: (values: LoginFormValues) => Promise<LoginUser>;
   onLogin: (user: LoginUser) => void;
+  errorMessage?: string;
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -106,9 +108,9 @@ export function LoginPage({
               </button>
             </div>
           </label>
-          {error && (
+          {(error || errorMessage) && (
             <p className="login-error" role="alert">
-              {error}
+              {error || errorMessage}
             </p>
           )}
           <button className="login-submit" type="submit" disabled={isSubmitting}>

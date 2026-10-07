@@ -1,5 +1,5 @@
-import ModuleRoutePage from "@scsms/features/pages/module-route-page";
+import InfrastructureModuleWeb from "./infrastructure-module-web";
 
 export default function InfrastructurePage() {
-  return <ModuleRoutePage active="Infrastructure" />;
+  return <InfrastructureModuleWeb />;
 }

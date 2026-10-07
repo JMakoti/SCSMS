@@ -2,8 +2,8 @@ import { z } from "zod";
 import { requiredText } from "./required-text";
 
 export const addSchoolSchema = z.object({
-  schoolCode: z.string().trim().optional(),
-  uicCode: z.string().trim().optional(),
+  schoolCode: requiredText("School code"),
+  uicCode: requiredText("UIC code"),
   knecCode: z.string().trim().optional(),
   tscCode: z.string().trim().optional(),
   regNumber: z.string().trim().optional(),
@@ -28,9 +28,10 @@ export const addSchoolSchema = z.object({
   genderType: z.enum(["MIXED", "BOYS", "GIRLS"]),
   boardingType: z.enum(["DAY", "BOARDING", "DAY_AND_BOARDING"]),
   titleDeed: z.enum(["YES", "NO"]),
-  county: z.literal("Kilifi"),
-  subCounty: z.literal("Rabai"),
+  county: requiredText("County"),
+  subCounty: requiredText("Sub-County"),
   ward: z.string().trim().optional(),
+  filePath: z.string().trim().optional(),
   location: z.string().trim().optional(),
   address: z.string().trim().optional(),
   phone: z.string().trim().optional(),

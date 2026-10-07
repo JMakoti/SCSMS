@@ -2,16 +2,13 @@
 
 import {
   createContext,
+  useEffect,
   useContext,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import type { AcademicYear } from "../types/enterprise";
-import {
-  academicYears as seededAcademicYears,
-  activeAcademicYear,
-} from "../data/fixtures/academic-years";
 
 type TransitionAcademicYearInput = {
   closingYearId: string;
@@ -20,27 +17,86 @@ type TransitionAcademicYearInput = {
   endDate: string;
 };
 
+type PersistAcademicYearTransitionInput = {
+  closingYear: AcademicYear | null;
+  newYear: AcademicYear;
+};
+
+type AcademicYearProviderProps = {
+  children: ReactNode;
+  initialAcademicYears?: AcademicYear[];
+  initialCurrentAcademicYearId?: string;
+  onSetCurrentAcademicYear?: (id: string) => Promise<void> | void;
+  onTransitionAcademicYear?: (
+    input: PersistAcademicYearTransitionInput,
+  ) => Promise<void> | void;
+};
+
 type AcademicYearContextValue = {
   academicYears: AcademicYear[];
   activeAcademicYear: AcademicYear;
   currentAcademicYear: AcademicYear;
-  setCurrentAcademicYearId: (id: string) => void;
-  transitionAcademicYear: (input: TransitionAcademicYearInput) => void;
+  setCurrentAcademicYearId: (id: string) => Promise<void>;
+  transitionAcademicYear: (input: TransitionAcademicYearInput) => Promise<void>;
 };
 
 const AcademicYearContext = createContext<AcademicYearContextValue | null>(
   null,
 );
 
-export function AcademicYearProvider({ children }: { children: ReactNode }) {
+function createFallbackAcademicYear() {
+  const currentYear = String(new Date().getFullYear());
+  const now = new Date().toISOString();
+
+  return {
+    id: `ay-${currentYear}`,
+    name: currentYear,
+    startDate: `${currentYear}-01-01`,
+    endDate: `${currentYear}-12-31`,
+    isActive: true,
+    isClosed: false,
+    createdAt: now,
+    updatedAt: now,
+  } satisfies AcademicYear;
+}
+
+export function AcademicYearProvider({
+  children,
+  initialAcademicYears,
+  initialCurrentAcademicYearId,
+  onSetCurrentAcademicYear,
+  onTransitionAcademicYear,
+}: AcademicYearProviderProps) {
+  const fallbackAcademicYear = useMemo(createFallbackAcademicYear, []);
   const [academicYears, setAcademicYears] =
-    useState<AcademicYear[]>(seededAcademicYears);
+    useState<AcademicYear[]>(() =>
+      initialAcademicYears?.length
+        ? initialAcademicYears
+        : [fallbackAcademicYear],
+    );
   const [currentAcademicYearId, setCurrentAcademicYearId] = useState(
-    activeAcademicYear.id,
+    initialCurrentAcademicYearId ??
+      initialAcademicYears?.find((year) => year.isActive)?.id ??
+      initialAcademicYears?.[0]?.id ??
+      fallbackAcademicYear.id,
   );
+
+  useEffect(() => {
+    if (!initialAcademicYears?.length) return;
+
+    setAcademicYears(initialAcademicYears);
+    setCurrentAcademicYearId(
+      initialCurrentAcademicYearId ??
+        initialAcademicYears.find((year) => year.isActive)?.id ??
+        initialAcademicYears[0].id,
+    );
+  }, [initialAcademicYears, initialCurrentAcademicYearId]);
+
   const currentAcademicYear =
     academicYears.find((year) => year.id === currentAcademicYearId) ??
-    activeAcademicYear;
+    academicYears.find((year) => year.isActive) ??
+    academicYears[0] ??
+    fallbackAcademicYear;
   const activeYear =
     academicYears.find((year) => year.isActive) ?? currentAcademicYear;
 
@@ -49,8 +105,11 @@ export function AcademicYearProvider({ children }: { children: ReactNode }) {
       academicYears,
       activeAcademicYear: activeYear,
       currentAcademicYear,
-      setCurrentAcademicYearId,
-      transitionAcademicYear: ({
+      setCurrentAcademicYearId: async (id: string) => {
+        await onSetCurrentAcademicYear?.(id);
+        setCurrentAcademicYearId(id);
+      },
+      transitionAcademicYear: async ({
         closingYearId,
         name,
         startDate,
@@ -68,6 +127,13 @@ export function AcademicYearProvider({ children }: { children: ReactNode }) {
           createdAt: now,
           updatedAt: now,
         };
+        const closingYear =
+          academicYears.find((year) => year.id === closingYearId) ?? null;
+
+        await onTransitionAcademicYear?.({
+          closingYear,
+          newYear,
+        });
 
         setAcademicYears((years) => {
           const nextYears = years.map((year) => ({
@@ -94,7 +160,13 @@ export function AcademicYearProvider({ children }: { children: ReactNode }) {
         setCurrentAcademicYearId(newYear.id);
       },
     }),
-    [academicYears, activeYear, currentAcademicYear],
+    [
+      academicYears,
+      activeYear,
+      currentAcademicYear,
+      onSetCurrentAcademicYear,
+      onTransitionAcademicYear,
+    ],
   );
 
   return (

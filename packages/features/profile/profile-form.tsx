@@ -5,22 +5,25 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { profileSchema } from "../schemas/profile-schema";
-import {
-  profileDefaults,
-  profileDetails,
-} from "../data/fixtures/profile";
+import { useFeatureData } from "../data/feature-data-context";
 import Link from "next/link";
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-const details = profileDetails;
+const details = [
+  ["Email address", "email"],
+  ["Phone number", "phone"],
+  ["Department", "department"],
+  ["Location", "location"],
+] as const;
 
 export default function ProfilePageForm() {
+  const { profile } = useFeatureData();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const { register, handleSubmit } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: profileDefaults,
+    defaultValues: profile,
   });
   const saveProfile = () => {
     setSaved(true);

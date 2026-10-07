@@ -1,5 +1,5 @@
-import SchoolProfileRoutePage from "@scsms/features/pages/school-profile-route-page";
 import { generateSchoolStaticParams } from "../../../static-params";
+import { SchoolProfileDesktop } from "./school-profile-desktop";
 
 export function generateStaticParams() {
   return generateSchoolStaticParams();
@@ -12,5 +12,5 @@ export default async function SchoolDetailPage({
 }) {
   const { code } = await params;
 
-  return <SchoolProfileRoutePage schoolId={decodeURIComponent(code)} />;
+  return <SchoolProfileDesktop schoolId={decodeURIComponent(code)} />;
 }

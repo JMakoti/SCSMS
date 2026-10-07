@@ -8,12 +8,13 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
-import { staffRecords } from "../data/fixtures/staff";
+import { useFeatureData } from "../data/feature-data-context";
 import StatusBadge from "../ui/status-badge";
 import { ExportMenu } from "../ui/export-menu";
 
 type StaffContentProps = {
   variant?: "page" | "school-profile";
+  school?: string;
 };
 
 function getInitials(name: string) {
@@ -25,8 +26,14 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-export function StaffContent({ variant = "page" }: StaffContentProps) {
-  const records = staffRecords;
+export function StaffContent({
+  variant = "page",
+  school,
+}: StaffContentProps) {
+  const { staff } = useFeatureData();
+  const records = school
+    ? staff.filter((record) => record.assignedSchool === school)
+    : staff;
   const [search, setSearch] = useState("");
   const [staffPage, setStaffPage] = useState(1);
   const staffPageSize = 3;
@@ -56,7 +63,11 @@ export function StaffContent({ variant = "page" }: StaffContentProps) {
         <div className="panel-header school-staff-header">
           <div>
             <h2>School staff</h2>
-            <p>Staff assigned to Mwangaza Primary School</p>
+            <p>
+              {school
+                ? `Staff assigned to ${school}`
+                : "Staff across all registered schools"}
+            </p>
           </div>
           <div className="school-staff-metrics" aria-label="Staff summary">
             <span>

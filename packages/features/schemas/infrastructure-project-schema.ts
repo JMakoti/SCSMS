@@ -12,6 +12,6 @@ export const infrastructureProjectSchema = z.object({
   description: z.string().trim().optional(),
   contractor: requiredText("Contractor"),
   infrastructureCondition: requiredText("Infrastructure Condition"),
-  dateStarted: requiredText("Date Started"),
-  dateCompleted: requiredText("Date Completed"),
+  dateStarted: z.string().trim().optional(),
+  dateCompleted: z.string().trim().optional(),
 });

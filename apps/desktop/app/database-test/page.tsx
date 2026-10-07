@@ -208,8 +208,8 @@ export default function DatabaseTestPage() {
                                 </p>
 
                                 <p className="mt-1 text-sm text-muted-foreground">
-                                    Make sure the administrator
-                                    seed has been executed.
+                                    No user record is currently stored in the
+                                    local database.
                                 </p>
                             </div>
                         )}
@@ -311,8 +311,8 @@ export default function DatabaseTestPage() {
                                 </p>
 
                                 <p className="mt-1 text-sm text-muted-foreground">
-                                    Make sure the sub-county seed
-                                    has been executed.
+                                    No sub-county record is currently stored
+                                    in the local database.
                                 </p>
                             </div>
                         )}

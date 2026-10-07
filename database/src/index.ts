@@ -10,5 +10,6 @@ export * from "./schema/schools";
 export * from "./schema/setting";
 export * from "./schema/staff";
 export * from "./schema/system";
+export * from "./schema/subject-combinations";
 export * from "./schema/user";
 export * from "./schema/subcounty_ward";

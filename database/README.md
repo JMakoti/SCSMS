@@ -79,9 +79,10 @@ Required values:
 ```env
 DATABASE_URL=postgresql://postgres:root@localhost:5432/scsmsdb
 SCSMS_ADMIN_PASSWORD=Admin@123
+SCSMS_SESSION_SECRET=replace-with-a-random-secret-of-at-least-32-characters
 ```
 
-`DATABASE_URL` is required by `src/postgres.ts` and all Postgres Drizzle commands. `SCSMS_ADMIN_PASSWORD` is required by the administrator seed, must contain at least 8 characters, and is hashed before storage.
+`DATABASE_URL` is required by `src/postgres.ts` and all Postgres Drizzle commands. `SCSMS_ADMIN_PASSWORD` is required by the administrator seed, must contain at least 8 characters, and is hashed before storage. `SCSMS_SESSION_SECRET` is required by the web app for signing its authenticated session cookie and must be a random value of at least 32 characters.
 
 ## Scripts
 
@@ -143,12 +144,14 @@ Both SQLite and PostgreSQL schemas are split by domain:
 
 - `academicyear`: academic years and terms.
 - `subcounty_ward`: sub-county and ward reference data.
+- `subcounty` rows store county, sub-county, and constituency metadata; each ward references its parent sub-county by ID.
 - `schools`: school registry and school metadata.
 - `contact`: school and ward contacts.
 - `staff`: staff records.
 - `enrollment`: enrollment snapshots and grade rows.
 - `infrastructure`: infrastructure snapshots, facility rows, and projects.
 - `performance`: assessment and subject performance records.
+- `subject-combinations`: school, academic year, and senior-school subject pathways.
 - `reports`: report templates and generated report runs.
 - `quality`: data quality checks.
 - `dashboard`: dashboard snapshot cache.

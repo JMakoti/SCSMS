@@ -1,4 +1,4 @@
-import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
+import EnrollmentDetailWeb from "./enrollment-detail-web";
 
 export default async function EnrollmentDetailPage({
   params,
@@ -7,10 +7,5 @@ export default async function EnrollmentDetailPage({
 }) {
   const { item } = await params;
 
-  return (
-    <RecordDetailRoutePage
-      active="Enrollment"
-      item={decodeURIComponent(item)}
-    />
-  );
+  return <EnrollmentDetailWeb item={decodeURIComponent(item)} />;
 }

@@ -7,7 +7,6 @@ This folder contains the Rust backend for the SCSMS desktop app. The frontend is
 - Starts the desktop shell through Tauri 2.
 - Creates and owns a local SQLite connection pool.
 - Runs the initial SQLite schema migration.
-- Seeds required local data, including the Rabai sub-county and administrator account.
 - Exposes a custom `run_sql` command used by Drizzle ORM in `sqlite-proxy` mode.
 
 ## Important Files
@@ -38,11 +37,11 @@ src-tauri/
 2. Enables logging in debug builds.
 3. Creates a SQLite pool for `sqlite:scsms.db`.
 4. Runs local schema migrations.
-5. Seeds initial data.
+5. Seeds the initial administrator and required sub-county record. It does not seed ward records.
 6. Stores the pool in Tauri managed state.
 7. Registers commands used by the frontend.
 
-The SQLite database file is created in the Tauri app working directory as `scsms.db`.
+The SQLite database file is created in the Tauri app working directory as `scsms.db`. Seeding is idempotent and does not replace existing records.
 
 ## Drizzle SQLite Proxy Flow
 
@@ -72,7 +71,7 @@ The command binds supported JSON parameter types, executes the query with `sqlx`
 `src/database/migrations.rs` loads the generated SQLite migration SQL from:
 
 ```text
-../../../database/drizzle/sqlite/0000_empty_scourge.sql
+../../../database/drizzle/sqlite/
 ```
 
 The migration runner:
@@ -80,23 +79,12 @@ The migration runner:
 - Creates a local `__scsms_migrations` bookkeeping table.
 - Skips if the initial schema version is already recorded.
 - Records the initial migration if an existing `users` table is detected.
-- Otherwise applies each SQL statement split by Drizzle's statement breakpoint marker.
+- Applies the initial schema and later subject-combination, ward-geography, and ward-to-sub-county migrations for existing databases.
+- Splits each migration on Drizzle's statement breakpoint marker.
 
-## Seeding
+## Initial records
 
-`src/database/seed.rs` seeds required local data and is safe to run repeatedly.
-
-It creates:
-
-- Rabai sub-county.
-- `administrator` role.
-- `admin@scsms.go.ke` user.
-
-The admin password comes from `SCSMS_ADMIN_PASSWORD` when available. If that variable is not set, the desktop seed falls back to:
-
-```text
-Admin@123
-```
+`src/database/seed.rs` creates the required Rabai sub-county, administrator role, and `admin@scsms.go.ke` user when they are missing. Ward records are not seeded; create them manually from the Ward page. The password uses `SCSMS_ADMIN_PASSWORD` when configured or falls back to `Admin@123`. The web app uses its own PostgreSQL database; the PostgreSQL seed command does not populate desktop SQLite.
 
 ## Commands
 

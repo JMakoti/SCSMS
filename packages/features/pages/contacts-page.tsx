@@ -4,31 +4,32 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { schoolContactGroups } from "../data/fixtures/contacts";
-import { rabaiSchools } from "../data/fixtures/rabai-schools";
+import { useFeatureData } from "../data/feature-data-context";
 import { addContactSchema } from "../schemas/add-contact-schema";
 import type { AddContactFormValues } from "../types/forms";
 import { ConfirmDeleteDialog } from "../ui/confirm-delete-dialog";
 
-const registrySchools = [...rabaiSchools].sort((a, b) =>
-  a.displayName.localeCompare(b.displayName),
-);
-
 export function LegacyAddContactDialog({
   onClose,
-  school = registrySchools[0]?.displayName,
+  school,
+  schools,
 }: {
   onClose: () => void;
-  school?: string;
+  school: string;
+  schools: ReturnType<typeof useFeatureData>["schools"];
 }) {
   const [saved, setSaved] = useState(false);
+  const registrySchools = [...schools].sort((a, b) =>
+    a.displayName.localeCompare(b.displayName),
+  );
   const selectedSchool =
     registrySchools.find((record) => record.displayName === school) ??
-    registrySchools[0];
+    registrySchools[0] ??
+    null;
   const { register, handleSubmit } = useForm<AddContactFormValues>({
     resolver: zodResolver(addContactSchema),
     defaultValues: {
-      school: selectedSchool.id,
+      school: selectedSchool?.id ?? "",
       role: "Head teacher",
       status: "Active",
     },
@@ -79,9 +80,9 @@ export function LegacyAddContactDialog({
                   School
                   <input type="hidden" {...register("school")} />
                   <div className="selected-school-field">
-                    <strong>{selectedSchool.displayName}</strong>
+                    <strong>{selectedSchool?.displayName ?? "No school selected"}</strong>
                     <span>
-                      {selectedSchool.schoolCode ?? "No code"} - Selected school
+                      {selectedSchool?.schoolCode ?? "No code"} - Selected school
                     </span>
                   </div>
                 </label>
@@ -140,10 +141,17 @@ export function LegacyAddContactDialog({
 function SchoolContactsContent({ school }: { school?: string }) {
   const [showContactModal, setShowContactModal] = useState(false);
   const [deleteItem, setDeleteItem] = useState<string | null>(null);
+  const { schools, contacts } = useFeatureData();
+  const registrySchools = [...schools].sort((a, b) =>
+    a.displayName.localeCompare(b.displayName),
+  );
   const selectedSchool =
     registrySchools.find((record) => record.displayName === school) ??
-    registrySchools[0];
-  const groups = schoolContactGroups;
+    registrySchools[0] ??
+    null;
+  const groups = contacts.filter((group) =>
+    group.title ? group.schoolId === selectedSchool?.id : false,
+  );
   return (
     <div className="school-contacts-grid">
       {deleteItem && (
@@ -155,7 +163,8 @@ function SchoolContactsContent({ school }: { school?: string }) {
       )}
       {showContactModal && (
         <LegacyAddContactDialog
-          school={selectedSchool.displayName}
+          school={selectedSchool?.displayName ?? ""}
+          schools={schools}
           onClose={() => setShowContactModal(false)}
         />
       )}
@@ -181,7 +190,7 @@ function SchoolContactsContent({ school }: { school?: string }) {
             </div>
             <div>
               <h2>{group.title}</h2>
-              <p>{selectedSchool.displayName} contact details</p>
+              <p>{selectedSchool?.displayName ?? "Selected school"} contact details</p>
             </div>
             <div className="school-contact-card-actions">
               <button

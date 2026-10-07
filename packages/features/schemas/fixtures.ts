@@ -56,17 +56,26 @@ export const infrastructureFacilityRowSchema = z.object({
   available: z.number(),
   good: z.number(),
   needsRepair: z.number(),
-  status: z.enum(["Pending", "Active", "Completed", "Cancelled"]),
+  status: z.string(),
 });
 
 export const infrastructureProjectRecordSchema = z.object({
+  id: z.string().optional(),
+  schoolId: z.string().optional(),
+  academicYearId: z.string().optional(),
   name: z.string(),
   school: z.string(),
   year: z.string(),
+  termId: z.string().nullable().optional(),
   term: z.string(),
-  status: z.enum(["Completed", "In progress"]),
+  status: z.string(),
   budget: z.string(),
   detail: z.string(),
+  category: z.string().optional(),
+  contractor: z.string().optional(),
+  condition: z.string().optional(),
+  dateStarted: z.string().nullable().optional(),
+  dateCompleted: z.string().nullable().optional(),
 });
 
 export const dashboardWardBarSchema = z.object({

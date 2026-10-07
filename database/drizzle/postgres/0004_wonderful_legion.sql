@@ -1,0 +1,2 @@
+ALTER TABLE "infrastructure_projects" ADD COLUMN "term_id" varchar(36);--> statement-breakpoint
+ALTER TABLE "infrastructure_projects" ADD CONSTRAINT "infrastructure_projects_term_id_terms_id_fk" FOREIGN KEY ("term_id") REFERENCES "public"."terms"("id") ON DELETE set null ON UPDATE no action;

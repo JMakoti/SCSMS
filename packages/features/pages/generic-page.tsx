@@ -4,11 +4,9 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@scsms/ui/components/button";
 import { AddWardDialog } from "../dialogs/ward-dialogs";
-import { moduleSeeders } from "../data/fixtures/modules";
-import { useAcademicYear } from "../academic-years/academic-year-context";
-import { getRabaiWardSummaries, rabaiSchools } from "../data/fixtures/rabai-schools";
+import { useFeatureData, type WardSummary } from "../data/feature-data-context";
 import { addStaffSchema } from "../schemas/add-staff-schema";
-import type { AddStaffFormValues } from "../types/forms";
+import type { AddStaffFormValues, AddWardFormValues } from "../types/forms";
 import {
   BookOpen,
   Building2,
@@ -28,19 +26,41 @@ import {
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import PageHeader from "../ui/page-header";
+
+const moduleSeeders = {
+  Enrollment: { icon: "Users", desc: "Capture and review learner enrollment by school, grade and term", action: "Add Enrollment" },
+  Staff: { icon: "UserCog", desc: "Manage teaching and non-teaching staff records across schools", action: "Add Staff" },
+  Infrastructure: { icon: "Building2", desc: "Track school facilities, utilities and infrastructure condition", action: "Add Infrastructure" },
+  Ward: { icon: "MapPinned", desc: "Review school distribution and records by ward", action: "Add Ward Record" },
+  "School Contacts": { icon: "BookOpen", desc: "Maintain official school contact information and roles", action: "Add Contact" },
+  Reports: { icon: "FileBarChart2", desc: "Generate, preview and export official education management reports", action: "Generate Report" },
+  "Data Quality": { icon: "ClipboardCheck", desc: "Monitor completeness and accuracy of education records", action: "Review records" },
+  "Audit Logs": { icon: "History", desc: "Track all changes made to education records and system settings", action: "Export Logs" },
+  "Users & Roles": { icon: "UserCog", desc: "Manage system users, roles and access permissions", action: "Add User" },
+  Settings: { icon: "Settings", desc: "Configure application preferences, validation and security", action: "Save settings" },
+  "System Information": { icon: "Server", desc: "Application health, storage and system information", action: "Refresh status" },
+} as const;
 export function GenericPage({
   active,
   setActive,
   onDetail,
+  wardRecords,
+  onSaveWard,
+  wardLoading = false,
+  wardLoadError = "",
 }: {
   active: string;
   setActive: (v: string) => void;
   onDetail?: (item: string) => void;
+  wardRecords?: WardSummary[];
+  onSaveWard?: (values: AddWardFormValues) => Promise<void>;
+  wardLoading?: boolean;
+  wardLoadError?: string;
 }) {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [showWardModal, setShowWardModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { currentAcademicYear } = useAcademicYear();
+  const { schools, wards, moduleRecords, reportTemplates } = useFeatureData();
   const icons = {
     BookOpen,
     Building2,
@@ -60,21 +80,18 @@ export function GenericPage({
     ]),
   ) as Record<
     string,
-    {
-      icon: React.ElementType;
-      desc: string;
-      action: string;
-      items: readonly string[];
-    }
+    { icon: React.ElementType; desc: string; action: string }
   >;
   const c = configs[active] || configs.Reports;
   const Icon = c.icon;
   const wardSummaries =
-    active === "Ward" ? getRabaiWardSummaries(currentAcademicYear.id) : [];
+    active === "Ward"
+      ? (wardRecords ?? wards)
+      : [];
     
   const schoolRegistryItems =
     active === "Infrastructure" || active === "School Contacts" || active === "School Performance"
-      ? [...rabaiSchools]
+      ? [...schools]
         .sort((a, b) => a.displayName.localeCompare(b.displayName))
         .map((school) => school.displayName)
       : [];
@@ -84,7 +101,7 @@ export function GenericPage({
       ? wardSummaries.map((ward) => ward.name)
       : schoolRegistryItems.length
         ? schoolRegistryItems
-        : c.items;
+        : (moduleRecords[active] ?? []);
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredModuleItems = moduleItems.filter((item, index) => {
     if (!normalizedQuery) return true;
@@ -129,7 +146,10 @@ export function GenericPage({
         <AddStaffDialog onClose={() => setShowStaffModal(false)} />
       )}
       {showWardModal && (
-        <AddWardDialog onClose={() => setShowWardModal(false)} />
+        <AddWardDialog
+          onClose={() => setShowWardModal(false)}
+          onSave={onSaveWard}
+        />
       )}
       <div className="module-summary">
         <div className="summary-icon">
@@ -138,11 +158,11 @@ export function GenericPage({
         <div>
           <strong>
             {active === "Data Quality"
-              ? "86%"
+              ? `${schools.length ? Math.round((schools.reduce((sum, school) => sum + [school.schoolCode, school.phone, school.email, school.ward, school.location].filter(Boolean).length, 0) / (schools.length * 5)) * 100) : 0}%`
               : active === "Audit Logs"
-                ? "1,284"
+                ? String(moduleItems.length)
                 : active === "Reports"
-                  ? "8"
+                  ? String(reportTemplates.length)
                   : active === "Ward"
                     ? String(wardSummaries.length)
                     : "Active module"}
@@ -151,9 +171,9 @@ export function GenericPage({
             {active === "Data Quality"
               ? "Overall data completeness"
               : active === "Audit Logs"
-                ? "Events this month"
+                ? "Events in database"
                 : active === "Ward"
-                  ? "Wards with registered schools"
+                    ? "Wards in database"
                   : "Records available locally"}
           </span>
         </div>
@@ -184,11 +204,26 @@ export function GenericPage({
           </div>
         </div>
         <div className="module-rows">
-          {filteredModuleItems.length === 0 ? (
+          {active === "Ward" && wardLoadError ? (
+            <div className="empty-state" role="alert">
+              <strong>Ward records could not be loaded</strong>
+              <span>{wardLoadError}</span>
+            </div>
+          ) : active === "Ward" && wardLoading ? (
+            <div className="empty-state">Loading ward records...</div>
+          ) : filteredModuleItems.length === 0 ? (
             <div className="empty-state">
               <Search aria-hidden="true" />
-              <strong>No {active.toLowerCase()} records found</strong>
-              <span>Try a different search term.</span>
+              <strong>
+                {active === "Ward" && !normalizedQuery
+                  ? "No ward records yet"
+                  : `No ${active.toLowerCase()} records found`}
+              </strong>
+              <span>
+                {active === "Ward" && !normalizedQuery
+                  ? "Use Add Ward Record to create the first ward."
+                  : "Try a different search term."}
+              </span>
             </div>
           ) : filteredModuleItems.map((item) => {
             const i = moduleItems.indexOf(item);
@@ -207,8 +242,8 @@ export function GenericPage({
                       : active === "System Information"
                         ? "Last checked 2 minutes ago"
                         : active === "Ward"
-                          ? `${ward?.wardCode ? `Ward ${ward.wardCode} - ` : ""}${ward?.schoolCount ?? 0} schools - ${ward?.studentCount.toLocaleString() ?? 0} demo learners - ${ward?.teacherCount.toLocaleString() ?? 0} demo teachers`
-                          : `Record reference ${String(i + 1).padStart(3, "0")} - Updated ${i + 1}h ago`}
+                          ? `${ward?.wardCode ? `Ward ${ward.wardCode} - ` : ""}${ward?.schoolCount ?? 0} schools - ${ward?.studentCount.toLocaleString() ?? 0} learners - ${ward?.teacherCount.toLocaleString() ?? 0} teachers`
+                          : "Current database record"}
                   </span>
                 </div>
                 {active === "System Information" ? (
@@ -240,6 +275,7 @@ export function GenericPage({
 }
 
 function AddStaffDialog({ onClose }: { onClose: () => void }) {
+  const { schools } = useFeatureData();
   const [saved, setSaved] = useState(false);
   const { register, handleSubmit } = useForm<AddStaffFormValues>({
     resolver: zodResolver(addStaffSchema),
@@ -310,7 +346,7 @@ function AddStaffDialog({ onClose }: { onClose: () => void }) {
                     <option value="" disabled>
                       Select a school
                     </option>
-                    {[...rabaiSchools]
+                    {[...schools]
                       .sort((a, b) =>
                         a.displayName.localeCompare(b.displayName),
                       )

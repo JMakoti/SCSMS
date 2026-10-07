@@ -55,9 +55,10 @@ Create a root `.env` file:
 ```env
 DATABASE_URL=postgresql://postgres:root@localhost:5432/scsmsdb
 SCSMS_ADMIN_PASSWORD=Admin@123
+SCSMS_SESSION_SECRET=replace-with-a-random-secret-of-at-least-32-characters
 ```
 
-`DATABASE_URL` is used by the Postgres database client and seed scripts. `SCSMS_ADMIN_PASSWORD` is used for the seeded administrator account.
+`DATABASE_URL` is used by the Postgres database client and seed scripts. `SCSMS_ADMIN_PASSWORD` is used for the PostgreSQL administrator seed. `SCSMS_SESSION_SECRET` signs the web app's HTTP-only authentication cookie and must be a random value of at least 32 characters.
 
 ## Install
 

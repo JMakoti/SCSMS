@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@/lib/database";
 import {
@@ -9,6 +9,7 @@ import {
   schools,
 } from "@scsms/db";
 import type { InfrastructureProjectFormValues } from "@scsms/features/types/forms";
+import type { InfrastructureFacilitySaveInput } from "@scsms/features/schemas/infrastructure-facility-schema";
 
 import {
   createLocalId,
@@ -17,6 +18,7 @@ import {
   required,
   resolveAcademicYearId,
   resolveSchoolId,
+  resolveTermId,
 } from "./helpers";
 
 export type InfrastructureProject = typeof infrastructureProjects.$inferSelect;
@@ -48,12 +50,40 @@ export type CreateInfrastructureSnapshotInput = {
   }>;
 };
 
+const defaultSchoolFacilities = [
+  "Classrooms",
+  "Administration block",
+  "Staffroom",
+  "Teachers' houses",
+  "Library",
+  "Laboratories",
+  "Computer laboratory",
+  "ICT room",
+  "Kitchen",
+  "Dining hall",
+  "Assembly hall",
+  "Store",
+  "Washrooms",
+  "Water points",
+  "Borehole",
+  "Water storage tanks",
+  "Electricity connection",
+  "Solar power system",
+  "Sports field",
+  "Security fence",
+  "Main gate",
+  "Garbage disposal area",
+] as const;
+
 const projectStatuses: Record<string, NonNullable<InfrastructureProject["status"]>> = {
   planned: "planned",
   pending: "planned",
+  active: "planned",
+  ongoing: "in_progress",
   "in progress": "in_progress",
   in_progress: "in_progress",
   completed: "completed",
+  delayed: "deferred",
   deferred: "deferred",
   cancelled: "cancelled",
 };
@@ -108,9 +138,11 @@ export async function getInfrastructureProjectDetails(id: string) {
 export async function createInfrastructureProject(
   input: InfrastructureProjectFormValues,
 ) {
+  const academicYearId = await resolveAcademicYearId(input.targetYear);
   await db.insert(infrastructureProjects).values({
     schoolId: await resolveSchoolId(input.selectedSchool),
-    academicYearId: await resolveAcademicYearId(input.targetYear),
+    academicYearId,
+    termId: await resolveTermId(input.term, academicYearId),
     projectName: required(input.projectName, "Project name"),
     projectType: required(input.category, "Project category"),
     projectContractor: required(input.contractor, "Contractor"),
@@ -142,6 +174,10 @@ export async function updateInfrastructureProject(
     .set({
       schoolId: await resolveSchoolId(input.selectedSchool),
       academicYearId: await resolveAcademicYearId(input.targetYear),
+      termId: await resolveTermId(
+        input.term,
+        await resolveAcademicYearId(input.targetYear),
+      ),
       projectName: required(input.projectName, "Project name"),
       projectType: required(input.category, "Project category"),
       projectContractor: required(input.contractor, "Contractor"),
@@ -175,6 +211,107 @@ export async function listInfrastructureSnapshots() {
     .select()
     .from(infrastructureSnapshots)
     .orderBy(asc(infrastructureSnapshots.capturedAt));
+}
+
+export async function initializeSchoolInfrastructure(schoolId: string) {
+  const [academicYear] = await db
+    .select({ id: academicYears.id })
+    .from(academicYears)
+    .where(eq(academicYears.isCurrent, true))
+    .limit(1);
+
+  if (!academicYear) {
+    throw new Error(
+      "School infrastructure cannot be initialized because no current academic year is configured.",
+    );
+  }
+
+  const snapshotId = createLocalId();
+  await db.insert(infrastructureSnapshots).values({
+    id: snapshotId,
+    schoolId,
+    academicYearId: academicYear.id,
+    status: "draft",
+  });
+  await db.insert(infrastructureFacilityRows).values(
+    defaultSchoolFacilities.map((facilityType) => ({
+      id: createLocalId(),
+      snapshotId,
+      facilityType,
+      available: 0,
+      good: 0,
+      needsRepair: 0,
+      status: "pending" as const,
+    })),
+  );
+}
+
+export async function saveInfrastructureFacility(
+  input: InfrastructureFacilitySaveInput,
+) {
+  const snapshot = await db
+    .select({ id: infrastructureSnapshots.id })
+    .from(infrastructureSnapshots)
+    .where(
+      and(
+        eq(infrastructureSnapshots.schoolId, input.schoolId),
+        eq(infrastructureSnapshots.academicYearId, input.academicYearId),
+      ),
+    )
+    .limit(1);
+  let snapshotId = snapshot[0]?.id;
+
+  if (!snapshotId) {
+    const [academicYear] = await db
+      .select({ id: academicYears.id })
+      .from(academicYears)
+      .where(eq(academicYears.id, input.academicYearId))
+      .limit(1);
+    if (!academicYear) {
+      throw new Error("The selected academic year was not found.");
+    }
+    snapshotId = createLocalId();
+    await db.insert(infrastructureSnapshots).values({
+      id: snapshotId,
+      schoolId: input.schoolId,
+      academicYearId: input.academicYearId,
+      status: "draft",
+    });
+  }
+
+  const status = input.status.toLowerCase().replaceAll(" ", "_") as
+    InfrastructureFacilityRow["status"];
+  const [existingRow] = await db
+    .select({ id: infrastructureFacilityRows.id })
+    .from(infrastructureFacilityRows)
+    .where(
+      and(
+        eq(infrastructureFacilityRows.snapshotId, snapshotId),
+        eq(infrastructureFacilityRows.facilityType, input.previousFacility),
+      ),
+    )
+    .limit(1);
+  const rowValues = {
+    facilityType: input.facility,
+    available: input.available,
+    good: input.good,
+    needsRepair: input.needsRepair,
+    status,
+  };
+
+  if (existingRow) {
+    await db
+      .update(infrastructureFacilityRows)
+      .set(rowValues)
+      .where(eq(infrastructureFacilityRows.id, existingRow.id));
+    return;
+  }
+
+  await db.insert(infrastructureFacilityRows).values({
+    id: createLocalId(),
+    snapshotId,
+    ...rowValues,
+  });
 }
 
 export async function getInfrastructureSnapshot(id: string) {

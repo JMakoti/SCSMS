@@ -4,9 +4,9 @@ export type InstitutionType =
 export type OwnershipType =
   "PUBLIC" | "PRIVATE" | "FAITH_BASED";
 
-export type GenderType = "MIXED" | "BOYS" | "GIRLS";
+export type GenderType = "MIXED" | "BOYS" | "GIRLS" | "UNKNOWN";
 
-export type BoardingType = "DAY" | "BOARDING" | "DAY_AND_BOARDING";
+export type BoardingType = "DAY" | "BOARDING" | "DAY_AND_BOARDING" | "UNKNOWN";
 
 export type EmployerType =
   | "GOVERMENT(TSC)"
@@ -63,21 +63,28 @@ export type AcademicYear = {
   updatedAt: string;
 };
 
-export type RabaiWard = {
+export type WardRecord = {
   wardName: string;
   wardCode: string;
-  county: "Kilifi";
+  county: string;
   countyCode: string;
-  subCounty: "Rabai";
+  subCounty: string;
   subCountyCode: string;
-  constituency: "Rabai";
+  constituency: string;
   constituencyCode: string;
 };
 
 export type RabaiSchool = {
   id: string;
+  wardId?: string | null;
   schoolCode: string | null;
   uicCode?: string | null;
+  knecCode?: string | null;
+  tscCode?: string | null;
+  logoPath?: string | null;
+  registrationNumber?: string | null;
+  registrationStatus?: string | null;
+  titleDeed?: string | null;
   officialName: string;
   displayName: string;
   institutionType: InstitutionType;
@@ -85,8 +92,8 @@ export type RabaiSchool = {
   ownershipType: OwnershipType;
   genderType: GenderType;
   boardingType: BoardingType;
-  county: "Kilifi";
-  subCounty: "Rabai";
+  county: string | null;
+  subCounty: string | null;
   ward: string | null;
   location: string | null;
   address: string | null;
@@ -96,11 +103,11 @@ export type RabaiSchool = {
   longitude: number | null;
   sne: SneStatus;
   isActive: boolean;
-  dataConfidence: DataConfidence;
-  dataSource: string;
-  sourceName: string;
-  sourceUrl: string;
-  verifiedAt: string;
+  dataConfidence: DataConfidence | null;
+  dataSource: string | null;
+  sourceName: string | null;
+  sourceUrl: string | null;
+  verifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };

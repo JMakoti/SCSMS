@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@scsms/ui/components/button";
-import { rabaiSchools } from "../data/fixtures/rabai-schools";
+import { useFeatureData } from "../data/feature-data-context";
 import {
   ChevronDown,
   ChevronLeft,
@@ -44,6 +44,7 @@ function SchoolsPage({
   onAdd: () => void;
   onProfile: (schoolId: string) => void;
 }) {
+  const { schools } = useFeatureData();
   type SchoolRegistryFilterValues = z.infer<typeof schoolRegistryFilterSchema>;
   const { register, reset, setValue, watch } =
     useForm<SchoolRegistryFilterValues>({
@@ -58,7 +59,7 @@ function SchoolsPage({
   const filter = watch("filter");
   const rowsPerPage = watch("rowsPerPage");
   const [selected, setSelected] = useState<string[]>([]);
-  const [columns, setColumns] = useState(true);
+  const [columns, setColumns] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -74,7 +75,7 @@ function SchoolsPage({
   ];
   const filtered = useMemo(
     () =>
-      [...rabaiSchools]
+      [...schools]
         .sort((a, b) => a.displayName.localeCompare(b.displayName))
         .filter(
           (s) =>
@@ -130,7 +131,7 @@ function SchoolsPage({
       formatSchoolOwnership(getSchoolOwnership(school)),
       formatSchoolGender(school.genderType),
       formatSchoolBoarding(school.boardingType),
-      formatSchoolTitleDeed(getSchoolTitleDeed()),
+      formatSchoolTitleDeed(getSchoolTitleDeed(school)),
       school.ward ?? "",
       school.isActive ? "Active" : "Inactive",
     ]);
@@ -218,7 +219,7 @@ function SchoolsPage({
   const reloadTable = () => {
     reset({ query: "", filter: "All", rowsPerPage: 25 });
     setSelected([]);
-    setColumns(true);
+    setColumns(false);
     setFiltersOpen(false);
     setExportOpen(false);
     setPage(1);
@@ -285,6 +286,7 @@ function SchoolsPage({
             className={`outline-button ${columns ? "active-tool" : ""}`}
             onClick={() => setColumns(!columns)}
             type="button"
+            aria-pressed={columns}
           >
             <Columns3 /> Columns
           </button>
@@ -347,7 +349,7 @@ function SchoolsPage({
       <div className="panel table-panel">
         <div className="table-meta">
           <span>
-            Showing <b>{filtered.length}</b> of {rabaiSchools.length} Rabai
+            Showing <b>{filtered.length}</b> of {schools.length} schools
             schools
           </span>
           <div className="table-meta-right">
@@ -468,7 +470,7 @@ function SchoolsPage({
                           getSchoolRegistrationStatus(s),
                         )}
                       </td>
-                      <td>{formatSchoolTitleDeed(getSchoolTitleDeed())}</td>
+                      <td>{formatSchoolTitleDeed(getSchoolTitleDeed(s))}</td>
                       <td>{displayValue(s.ward)}</td>
                     </>
                   )}

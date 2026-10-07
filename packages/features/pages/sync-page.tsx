@@ -2,8 +2,22 @@
 
 import { Button } from "@scsms/ui/components/button";
 import { Cloud, MoreHorizontal, RefreshCw } from "lucide-react";
+import { useFeatureData } from "../data/feature-data-context";
 import PageHeader from "../ui/page-header";
 export function SyncPage() {
+  const { pendingSyncCount, syncRecords } = useFeatureData();
+  const failedRecords = syncRecords.filter((record) => record.status === "failed");
+  const syncedRecords = syncRecords.filter((record) => record.status === "synced");
+  const lastSuccessfulSync = syncedRecords
+    .map((record) => record.syncedAt)
+    .filter((date): date is string => Boolean(date))
+    .sort((a, b) => b.localeCompare(a))[0];
+  const queuedRecords = [...syncRecords]
+    .filter((record) => ["pending", "failed", "syncing"].includes(record.status))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const formatDate = (value: string | null) =>
+    value ? new Date(value).toLocaleString() : "Not available";
+
   return (
     <div className="content">
       <PageHeader
@@ -23,20 +37,20 @@ export function SyncPage() {
         </div>
         <div>
           <span className="eyebrow">Connection status</span>
-          <h2>Online and ready</h2>
-          <p>Last successful sync: 18 September 2026, 02:00 AM</p>
+          <h2>Database connection active</h2>
+          <p>Last successful sync: {formatDate(lastSuccessfulSync ?? null)}</p>
         </div>
         <div className="sync-metrics">
           <div>
-            <strong>7</strong>
+            <strong>{pendingSyncCount}</strong>
             <span>Pending changes</span>
           </div>
           <div>
-            <strong>126</strong>
+            <strong>{syncedRecords.length}</strong>
             <span>Records synced</span>
           </div>
           <div>
-            <strong>2</strong>
+            <strong>{failedRecords.length}</strong>
             <span>Failed records</span>
           </div>
         </div>
@@ -47,37 +61,39 @@ export function SyncPage() {
             <h2>Sync queue</h2>
             <p>Local changes waiting to be processed</p>
           </div>
-          <button className="outline-button">Retry failed</button>
+          <button className="outline-button" disabled={failedRecords.length === 0}>
+            Retry failed
+          </button>
         </div>
-        {[
-          "School SCH-001",
-          "Enrollment • Mwangaza Primary",
-          "Staff STF-012",
-          "Infrastructure • Bahari Primary",
-        ].map((x, i) => (
-          <div className="sync-row" key={x}>
+        {queuedRecords.map((record) => (
+          <div className="sync-row" key={record.id}>
             <div className="sync-row-icon">
               <Cloud />
             </div>
             <div>
-              <strong>{x}</strong>
-              <span>
-                {i === 0
-                  ? "Updated status field"
-                  : i === 1
-                    ? "Added Grade 4 enrollment"
-                    : "Record updated locally"}
-              </span>
+              <strong>{record.label}</strong>
+              <span>{record.operation} · {record.tableName}</span>
             </div>
-            <span className={`sync-status ${i === 3 ? "failed" : "pending"}`}>
-              {i === 3 ? "Failed" : "Pending"}
+            <span className={`sync-status ${record.status === "failed" ? "failed" : "pending"}`}>
+              {record.status}
             </span>
-            <span className="sync-time">{i + 1}h ago</span>
+            <span className="sync-time">{formatDate(record.createdAt)}</span>
             <button className="row-more">
               <MoreHorizontal />
             </button>
           </div>
         ))}
+        {queuedRecords.length === 0 && (
+          <div className="sync-row">
+            <div className="sync-row-icon">
+              <Cloud />
+            </div>
+            <div>
+              <strong>No queued changes</strong>
+              <span>There are no pending or failed synchronization records.</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

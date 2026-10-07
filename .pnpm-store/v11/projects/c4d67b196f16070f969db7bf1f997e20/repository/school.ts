@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, or } from "drizzle-orm";
 import type { InferInsertModel } from "drizzle-orm";
 
 import { db } from "@/lib/database";
@@ -17,6 +17,9 @@ import type {
   AddSchoolFormValues,
   EditSchoolRecordFormValues,
 } from "@scsms/features/types/forms";
+import { createLocalId } from "./helpers";
+import { initializeSchoolEnrollment } from "./enrollment";
+import { initializeSchoolInfrastructure } from "./infrastructure";
 
 export type School = typeof schools.$inferSelect;
 export type SchoolDetails = School & {
@@ -148,19 +151,19 @@ function mapSchoolFields(
   };
 }
 
-async function resolveWardId(wardName: string | undefined) {
-  const name = required(wardName, "Ward");
-  const [ward] = await db
+async function resolveWardId(wardIdOrName: string | undefined) {
+  const value = required(wardIdOrName, "Ward");
+  const [record] = await db
     .select({ id: wards.id })
     .from(wards)
-    .where(eq(wards.wardName, name))
+    .where(or(eq(wards.id, value), eq(wards.wardName, value)))
     .limit(1);
 
-  if (!ward) {
-    throw new Error(`Ward "${name}" was not found. Add the ward before assigning a school.`);
+  if (!record) {
+    throw new Error(`Ward "${value}" was not found. Add the ward before assigning a school.`);
   }
 
-  return ward.id;
+  return record.id;
 }
 
 export async function listSchools() {
@@ -236,21 +239,59 @@ export async function getSchoolDetails(id: string) {
 
 export async function createSchool(input: AddSchoolFormValues) {
   const schoolCode = required(input.schoolCode, "School code");
-  const duplicate = await db
-    .select({ id: schools.id })
-    .from(schools)
-    .where(eq(schools.schoolCode, schoolCode))
-    .limit(1);
+  const uicCode = required(input.uicCode, "UIC code");
+  const [duplicateSchoolCode, duplicateUicCode] = await Promise.all([
+    db
+      .select({ id: schools.id })
+      .from(schools)
+      .where(eq(schools.schoolCode, schoolCode))
+      .limit(1),
+    db
+      .select({ id: schools.id })
+      .from(schools)
+      .where(eq(schools.uicCode, uicCode))
+      .limit(1),
+  ]);
 
-  if (duplicate.length > 0) {
+  if (duplicateSchoolCode.length > 0) {
     throw new Error(`School code ${schoolCode} is already in use.`);
+  }
+  if (duplicateUicCode.length > 0) {
+    throw new Error(`UIC code ${uicCode} is already in use.`);
   }
 
   const wardId = await resolveWardId(input.ward);
+  const schoolId = createLocalId();
   await db.insert(schools).values({
+    id: schoolId,
     ...mapSchoolFields(input),
+    logoPath: optional(input.filePath),
     wardId,
   });
+
+  try {
+    await initializeSchoolEnrollment(schoolId, input.level);
+    await initializeSchoolInfrastructure(schoolId);
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unknown initial record creation error.";
+    try {
+      await db.delete(schools).where(eq(schools.id, schoolId));
+    } catch (cleanupError) {
+      const cleanupMessage =
+        cleanupError instanceof Error
+          ? cleanupError.message
+          : "Unknown cleanup error.";
+      throw new Error(
+        `The school was created, but its initial records could not be created: ${message}. School rollback also failed: ${cleanupMessage}`,
+      );
+    }
+    throw new Error(
+      `The school was not saved because its initial records could not be created: ${message}`,
+    );
+  }
 }
 
 export async function updateSchool(id: string, input: EditSchoolRecordFormValues) {
@@ -275,15 +316,38 @@ export async function updateSchool(id: string, input: EditSchoolRecordFormValues
   if (duplicate.some((school) => school.id !== id)) {
     throw new Error(`School code ${schoolCode} is already in use.`);
   }
+  const uicCode = required(fields.uicCode, "UIC code");
+  const duplicateUicCode = await db
+    .select({ id: schools.id })
+    .from(schools)
+    .where(eq(schools.uicCode, uicCode))
+    .limit(1);
+
+  if (duplicateUicCode.some((school) => school.id !== id)) {
+    throw new Error(`UIC code ${uicCode} is already in use.`);
+  }
 
   const wardId = await resolveWardId(fields.ward);
   await db
     .update(schools)
     .set({
       ...mapSchoolFields(fields),
+      logoPath: optional(fields.filePath),
       wardId,
       updatedAt: new Date().toISOString(),
     })
+    .where(eq(schools.id, id));
+}
+
+export async function updateSchoolLogoPath(id: string, logoPath: string) {
+  const existing = await getSchool(id);
+  if (!existing) {
+    throw new Error("This school no longer exists. Refresh the list and try again.");
+  }
+
+  await db
+    .update(schools)
+    .set({ logoPath, updatedAt: new Date().toISOString() })
     .where(eq(schools.id, id));
 }
 

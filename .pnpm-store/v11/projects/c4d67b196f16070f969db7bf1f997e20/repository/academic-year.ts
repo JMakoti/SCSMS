@@ -24,6 +24,7 @@ export type AcademicYearDetails = AcademicYearRecord & {
 };
 
 export type AcademicYearInput = {
+  id?: string;
   name: string;
   startsOn: string;
   endsOn: string;
@@ -117,12 +118,15 @@ export async function createAcademicYear(input: AcademicYearInput) {
   }
 
   await db.insert(academicYears).values({
+    id: input.id,
     name,
     startsOn: required(input.startsOn, "Start date"),
     endsOn: required(input.endsOn, "End date"),
     status: input.status ?? (input.isCurrent ? "active" : "planned"),
     isCurrent: input.isCurrent ?? false,
   });
+
+  return input.id ?? name;
 }
 
 export async function updateAcademicYear(id: string, input: AcademicYearInput) {
@@ -175,6 +179,24 @@ export async function setCurrentAcademicYear(id: string) {
     .set({
       isCurrent: true,
       status: "active",
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(academicYears.id, id));
+}
+
+export async function closeAcademicYear(id: string) {
+  const existing = await getAcademicYear(id);
+  if (!existing) {
+    throw new Error(
+      "This academic year no longer exists. Refresh the list and try again.",
+    );
+  }
+
+  await db
+    .update(academicYears)
+    .set({
+      isCurrent: false,
+      status: "closed",
       updatedAt: new Date().toISOString(),
     })
     .where(eq(academicYears.id, id));

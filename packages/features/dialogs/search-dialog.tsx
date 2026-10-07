@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { rabaiSchools } from "../data/fixtures/rabai-schools";
+import { useFeatureData } from "../data/feature-data-context";
 import {
   ChevronRight,
   FileBarChart2,
@@ -25,8 +25,9 @@ export function SearchDialog({
     resolver: zodResolver(searchDialogSchema),
     defaultValues: { query: "" },
   });
+  const { schools } = useFeatureData();
   const query = watch("query");
-  const results = [...rabaiSchools]
+  const results = [...schools]
     .sort((a, b) => a.displayName.localeCompare(b.displayName))
     .filter((x) =>
       `${x.displayName} ${x.officialName} ${x.schoolCode ?? ""}`

@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@/lib/database";
 import {
@@ -18,6 +18,7 @@ import {
   resolveSchoolId,
   resolveTermId,
 } from "./helpers";
+import type { EnrollmentGradeSaveInput } from "@scsms/features/schemas/enrollment-grade-schema";
 
 export type EnrollmentSnapshot = typeof enrollmentSnapshots.$inferSelect;
 export type EnrollmentGradeRow = typeof enrollmentGradeRows.$inferSelect;
@@ -45,11 +46,151 @@ export type CreateEnrollmentSnapshotInput = {
   gradeRows?: EnrollmentGradeRowInput[];
 };
 
+type SchoolLevel = "Primary" | "Junior_Secondary" | "Senior_School";
+
+const gradesBySchoolLevel: Record<
+  SchoolLevel,
+  Array<{ grade: string; gradeBand: string }>
+> = {
+  Primary: [
+    ...["PP1", "PP2", "PP3"].map((grade) => ({
+      grade,
+      gradeBand: "PP1-PP3",
+    })),
+    ...Array.from({ length: 6 }, (_, index) => ({
+      grade: `Grade ${index + 1}`,
+      gradeBand: "Grade 1-6",
+    })),
+  ],
+  Junior_Secondary: Array.from({ length: 3 }, (_, index) => ({
+    grade: `Grade ${index + 7}`,
+    gradeBand: "Grade 7-9",
+  })),
+  Senior_School: Array.from({ length: 3 }, (_, index) => ({
+    grade: `Grade ${index + 10}`,
+    gradeBand: "Grade 10-12",
+  })),
+};
+
 export async function listEnrollmentSnapshots() {
   return db
     .select()
     .from(enrollmentSnapshots)
     .orderBy(asc(enrollmentSnapshots.capturedAt));
+}
+
+export async function saveEnrollmentGrade(input: EnrollmentGradeSaveInput) {
+  if (
+    !Number.isSafeInteger(input.male) ||
+    !Number.isSafeInteger(input.female) ||
+    input.male < 0 ||
+    input.female < 0
+  ) {
+    throw new Error("Boys and girls counts must be non-negative whole numbers.");
+  }
+
+  const [term] = await db
+    .select({ id: terms.id })
+    .from(terms)
+    .where(
+      and(
+        eq(terms.id, input.termId),
+        eq(terms.academicYearId, input.academicYearId),
+      ),
+    )
+    .limit(1);
+  if (!term) {
+    throw new Error("The selected term was not found for this academic year.");
+  }
+
+  let [snapshot] = await db
+    .select({ id: enrollmentSnapshots.id })
+    .from(enrollmentSnapshots)
+    .where(
+      and(
+        eq(enrollmentSnapshots.schoolId, input.schoolId),
+        eq(enrollmentSnapshots.academicYearId, input.academicYearId),
+        eq(enrollmentSnapshots.termId, input.termId),
+      ),
+    )
+    .limit(1);
+
+  if (!snapshot) {
+    const snapshotId = createLocalId();
+    await db.insert(enrollmentSnapshots).values({
+      id: snapshotId,
+      schoolId: input.schoolId,
+      academicYearId: input.academicYearId,
+      termId: input.termId,
+      status: "draft",
+    });
+    snapshot = { id: snapshotId };
+  }
+
+  const rowValues = {
+    gradeBand: input.gradeBand,
+    male: input.male,
+    female: input.female,
+    total: input.male + input.female,
+  };
+  const [existingRow] = await db
+    .select({ id: enrollmentGradeRows.id })
+    .from(enrollmentGradeRows)
+    .where(
+      and(
+        eq(enrollmentGradeRows.snapshotId, snapshot.id),
+        eq(enrollmentGradeRows.grade, input.grade),
+      ),
+    )
+    .limit(1);
+
+  if (existingRow) {
+    await db
+      .update(enrollmentGradeRows)
+      .set(rowValues)
+      .where(eq(enrollmentGradeRows.id, existingRow.id));
+    return;
+  }
+
+  await db.insert(enrollmentGradeRows).values({
+    id: createLocalId(),
+    snapshotId: snapshot.id,
+    grade: input.grade,
+    ...rowValues,
+  });
+}
+
+export async function initializeSchoolEnrollment(
+  schoolId: string,
+  schoolLevel: SchoolLevel,
+) {
+  const academicYear = await resolveEnrollmentAcademicYear();
+  const yearTerms = await ensureEnrollmentTerms(academicYear.id);
+  const grades = gradesBySchoolLevel[schoolLevel];
+  const snapshotIds = yearTerms.map(() => createLocalId());
+
+  await db.insert(enrollmentSnapshots).values(
+    yearTerms.map((term, index) => ({
+      id: snapshotIds[index],
+      schoolId,
+      academicYearId: academicYear.id,
+      termId: term.id,
+      status: "draft" as const,
+    })),
+  );
+
+  await db.insert(enrollmentGradeRows).values(
+    snapshotIds.flatMap((snapshotId) =>
+      grades.map(({ grade, gradeBand }) => ({
+        snapshotId,
+        grade,
+        gradeBand,
+        male: 0,
+        female: 0,
+        total: 0,
+      })),
+    ),
+  );
 }
 
 export async function getEnrollmentSnapshot(id: string) {
@@ -86,6 +227,90 @@ export async function getEnrollmentSnapshotDetails(id: string) {
     term: termResult[0] ?? null,
     gradeRows,
   } satisfies EnrollmentSnapshotDetails;
+}
+
+async function resolveEnrollmentAcademicYear() {
+  const [currentYear] = await db
+    .select()
+    .from(academicYears)
+    .where(eq(academicYears.isCurrent, true))
+    .limit(1);
+  if (currentYear) return currentYear;
+
+  const configuredYears = await db
+    .select()
+    .from(academicYears)
+    .orderBy(asc(academicYears.name));
+  if (configuredYears[0]) {
+    const year = configuredYears[0];
+    await db
+      .update(academicYears)
+      .set({
+        isCurrent: true,
+        status: "active",
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(academicYears.id, year.id));
+    return { ...year, isCurrent: true, status: "active" as const };
+  }
+
+  const yearName = String(new Date().getFullYear());
+  const yearId = `ay-${yearName}`;
+  const startsOn = `${yearName}-01-01`;
+  const endsOn = `${yearName}-12-31`;
+  await db.insert(academicYears).values({
+    id: yearId,
+    name: yearName,
+    startsOn,
+    endsOn,
+    status: "active",
+    isCurrent: true,
+  });
+
+  const [createdYear] = await db
+    .select()
+    .from(academicYears)
+    .where(eq(academicYears.id, yearId))
+    .limit(1);
+  if (!createdYear) {
+    throw new Error("The current academic year could not be initialized.");
+  }
+  return createdYear;
+}
+
+async function ensureEnrollmentTerms(academicYearId: string) {
+  const configuredTerms = await db
+    .select()
+    .from(terms)
+    .where(eq(terms.academicYearId, academicYearId))
+    .orderBy(asc(terms.sequence));
+  const termsBySequence = new Map(
+    configuredTerms.map((term) => [term.sequence, term]),
+  );
+
+  for (const sequence of [1, 2, 3]) {
+    if (termsBySequence.has(sequence)) continue;
+
+    const term = {
+      id: createLocalId(),
+      academicYearId,
+      name: `Term ${sequence}`,
+      startsOn: null,
+      endsOn: null,
+      sequence,
+      isCurrent: sequence === 1 && !configuredTerms.some((item) => item.isCurrent),
+    };
+    await db.insert(terms).values(term);
+    termsBySequence.set(sequence, term);
+  }
+
+  return [1, 2, 3].map((sequence) => {
+    const term = termsBySequence.get(sequence);
+    if (!term) {
+      throw new Error(`Term ${sequence} could not be initialized.`);
+    }
+    return term;
+  });
 }
 
 export async function listEnrollmentGradeRows(snapshotId: string) {

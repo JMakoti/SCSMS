@@ -1,4 +1,5 @@
 mod database;
+mod file_storage;
 
 use database::connection::create_pool;
 use database::migrations::run_migrations;
@@ -9,6 +10,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -41,7 +43,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             database::auth::login,
             run_sql,
-            database::seed::seed_database
+            database::seed::seed_database,
+            file_storage::store_school_logo,
+            file_storage::resolve_school_logo_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running SCSMS");
