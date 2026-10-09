@@ -7,5 +7,6 @@ export const addContactSchema = z.object({
   fullName: requiredText("Full name"),
   email: z.string().trim().email("Enter a valid email address"),
   phone: requiredText("Phone number"),
+  phone2: z.string().trim().optional(),
   status: z.string().trim().optional(),
 });

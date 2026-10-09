@@ -47,15 +47,26 @@ export function AddInfrastructureDialog({
   onClose,
   selectedSchool,
   onSaveProject,
+  onUpdateProject,
+  project,
 }: {
   onClose: () => void;
   selectedSchool?: string;
   onSaveProject?: InfrastructureProjectActions["onCreateProject"];
+  onUpdateProject?: InfrastructureProjectActions["onUpdateProject"];
+  project?: InfrastructureProjectRecord | null;
 }) {
-  const { schools, terms } = useFeatureData();
+  const { schools, terms, academicYears } = useFeatureData();
   const { currentAcademicYear } = useAcademicYear();
+  const projectAcademicYear = project?.academicYearId
+    ? academicYears.find((year) => year.id === project.academicYearId)
+    : undefined;
   const targetYear =
-    Number(currentAcademicYear.name.match(/\d{4}/)?.[0]) ||
+    Number(
+      (projectAcademicYear?.name ?? project?.year ?? currentAcademicYear.name).match(
+        /\d{4}/,
+      )?.[0],
+    ) ||
     new Date().getFullYear();
   const currentTerm = terms.find(
     (term) => term.academicYearId === currentAcademicYear.id,
@@ -63,29 +74,49 @@ export function AddInfrastructureDialog({
   const registrySchools = [...schools].sort((a, b) =>
     a.displayName.localeCompare(b.displayName),
   );
-  const resolvedSchool = selectedSchool ?? registrySchools[0]?.displayName ?? "";
+  const resolvedSchool =
+    project?.school ?? selectedSchool ?? registrySchools[0]?.displayName ?? "";
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const { register, handleSubmit } = useForm<InfrastructureProjectFormValues>({
     resolver: zodResolver(infrastructureProjectSchema),
     defaultValues: {
+      projectName: project?.name ?? "",
       selectedSchool: resolvedSchool,
-      category: "Classrooms",
-      status: "Active",
-      term: currentTerm?.name ?? "",
+      category: project?.category ?? "Classrooms",
+      status: project?.status ?? "Active",
+      term:
+        project?.term && project.term !== "Not recorded"
+          ? project.term
+          : currentTerm?.name ?? "",
+      budget: project?.budget === "Not recorded" ? "" : project?.budget ?? "",
       targetYear,
+      description: project?.detail ?? "",
+      contractor: project?.contractor ?? "",
+      infrastructureCondition: project?.condition ?? "Good",
+      dateStarted: project?.dateStarted ?? "",
+      dateCompleted: project?.dateCompleted ?? "",
     },
   });
   const saveProject = async (values: InfrastructureProjectFormValues) => {
-    if (!onSaveProject) {
+    if (project?.id) {
+      if (!onUpdateProject) {
+        setSaveError("Infrastructure project updating is not configured.");
+        return;
+      }
+    } else if (!onSaveProject) {
       setSaveError("Infrastructure project saving is not configured.");
       return;
     }
     setSaving(true);
     setSaveError("");
     try {
-      await onSaveProject(values);
+      if (project?.id) {
+        await onUpdateProject?.(project.id, values);
+      } else {
+        await onSaveProject?.(values);
+      }
       window.dispatchEvent(new Event("scsms:feature-data-refresh"));
       setSaved(true);
     } catch (error) {
@@ -104,8 +135,14 @@ export function AddInfrastructureDialog({
         <div className="dialog-head">
           <div>
             <span className="eyebrow">Infrastructure management</span>
-            <h2>Add infrastructure project</h2>
-            <p>Record a school facility, utility, or infrastructure project.</p>
+            <h2>
+              {project ? "Edit infrastructure project" : "Add infrastructure project"}
+            </h2>
+            <p>
+              {project
+                ? "Update this school facility, utility, or infrastructure project."
+                : "Record a school facility, utility, or infrastructure project."}
+            </p>
           </div>
           <button
             className="icon-button"
@@ -140,18 +177,9 @@ export function AddInfrastructureDialog({
                     placeholder="e.g. New classroom block"
                   />
                 </label>
+                <input type="hidden" {...register("selectedSchool")} />
                 <label>
-                  Selected school
-                  <input type="hidden" {...register("selectedSchool")} />
-                  <div className="selected-school-field">
-                    <strong>{selectedSchool}</strong>
-                    <span>
-                      Infrastructure records will be added to this school
-                    </span>
-                  </div>
-                </label>
-                <label>
-                  Project name
+                  Contractor
                   <input {...register("contractor")} placeholder="Contractor" />
                 </label>
                 <label>
@@ -205,6 +233,7 @@ export function AddInfrastructureDialog({
                     <option>Ongoing</option>
                     <option>Completed</option>
                     <option>Delayed</option>
+                  <option>Cancelled</option>
                   </select>
                 </label>
                 <label>
@@ -269,7 +298,7 @@ export function AddInfrastructureDialog({
                 type="submit"
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save project"}
+                {saving ? "Saving..." : project ? "Save changes" : "Save project"}
               </button>
             </div>
           </form>
@@ -313,6 +342,8 @@ function InfrastructureContent({
     [currentAcademicYear.id, infrastructureFacilities, selectedSchoolId],
   );
   const [showAddModal, setShowAddModal] = useState(false);
+  const [projectDialogProject, setProjectDialogProject] =
+    useState<InfrastructureProjectRecord | null>(null);
   const [facilityRows, setFacilityRows] = useState<InfrastructureFacilityRow[]>(
     selectedSchoolFacilities,
   );
@@ -428,7 +459,7 @@ function InfrastructureContent({
     if (editingFacility === facility) cancelFacilityEdit();
   };
   const startProjectEdit = (project: InfrastructureProjectRecord) => {
-    setEditingProject(project.name);
+    setEditingProject(project.id ?? project.name);
     setProjectDraft({ ...project });
   };
   const updateProjectDraft = (
@@ -450,9 +481,24 @@ function InfrastructureContent({
       );
       return;
     }
-    const targetYear = Number(projectDraft.year);
+    const targetAcademicYear = academicYears.find(
+      (year) =>
+        year.id === projectDraft.academicYearId ||
+        year.name === projectDraft.year,
+    );
+    const targetYear = Number(
+      (targetAcademicYear?.name ?? projectDraft.year).match(/\d{4}/)?.[0],
+    );
     if (!Number.isInteger(targetYear)) {
       setProjectSaveError("Enter a valid target year before saving.");
+      return;
+    }
+    if (!projectDraft.contractor?.trim()) {
+      setProjectSaveError("Enter the project contractor before saving.");
+      return;
+    }
+    if (!projectDraft.condition?.trim()) {
+      setProjectSaveError("Select the infrastructure condition before saving.");
       return;
     }
 
@@ -530,8 +576,13 @@ function InfrastructureContent({
       {showAddModal && (
         <AddInfrastructureDialog
           selectedSchool={school}
-          onClose={() => setShowAddModal(false)}
+          project={projectDialogProject}
+          onClose={() => {
+            setShowAddModal(false);
+            setProjectDialogProject(null);
+          }}
           onSaveProject={onCreateProject}
+          onUpdateProject={onUpdateProject}
         />
       )}
       <section className="panel infrastructure-panel">
@@ -544,7 +595,10 @@ function InfrastructureContent({
           <div className="infrastructure-actions">
             <button
               className="edit-school-button"
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                setProjectDialogProject(null);
+                setShowAddModal(true);
+              }}
             >
               <Plus />
               Add Infrastructure
@@ -766,7 +820,8 @@ function InfrastructureContent({
                         event.preventDefault();
                         event.stopPropagation();
                         setProjectSaveError("");
-                        startProjectEdit(project);
+                        setProjectDialogProject(project);
+                        setShowAddModal(true);
                       }}
                     >
                       <Pencil />
@@ -799,31 +854,31 @@ function InfrastructureContent({
                         />
                       </label>
                       <label>
-                        School
+                        Year
                         <select
-                          value={draft.school}
+                          value={draft.academicYearId ?? ""}
                           onChange={(event) =>
-                            updateProjectDraft("school", event.target.value)
+                            setProjectDraft((current) => {
+                              if (!current) return current;
+                              const selectedYear = academicYears.find(
+                                (year) => year.id === event.target.value,
+                              );
+                              return {
+                                ...current,
+                                academicYearId: selectedYear?.id,
+                                year: selectedYear?.name ?? current.year,
+                                termId: null,
+                                term: "Not recorded",
+                              };
+                            })
                           }
                         >
-                          {registrySchools.map((registrySchool) => (
-                            <option
-                              key={registrySchool.id}
-                              value={registrySchool.displayName}
-                            >
-                              {registrySchool.displayName}
+                          {academicYears.map((year) => (
+                            <option key={year.id} value={year.id}>
+                              {year.name}
                             </option>
                           ))}
                         </select>
-                      </label>
-                      <label>
-                        Year
-                        <input
-                          value={draft.year}
-                          onChange={(event) =>
-                            updateProjectDraft("year", event.target.value)
-                          }
-                        />
                       </label>
                       <label>
                         Term
@@ -833,11 +888,14 @@ function InfrastructureContent({
                             updateProjectDraft("term", event.target.value)
                           }
                         >
+                          <option value="Not recorded">Not recorded</option>
                           {terms
                             .filter((term) => {
-                              const academicYearId = academicYears.find(
-                                (year) => year.name === draft.year,
-                              )?.id;
+                              const academicYearId =
+                                draft.academicYearId ??
+                                academicYears.find(
+                                  (year) => year.name === draft.year,
+                                )?.id;
                               return term.academicYearId === academicYearId;
                             })
                             .map((term) => (
@@ -855,9 +913,44 @@ function InfrastructureContent({
                             updateProjectDraft("status", event.target.value)
                           }
                         >
+                          <option>Active</option>
+                          <option>Ongoing</option>
                           <option>Completed</option>
-                          <option>In progress</option>
+                          <option>Delayed</option>
                           <option>Cancelled</option>
+                        </select>
+                      </label>
+                      <label>
+                        Category
+                        <input
+                          value={draft.category ?? ""}
+                          onChange={(event) =>
+                            updateProjectDraft("category", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        Contractor
+                        <input
+                          value={draft.contractor ?? ""}
+                          onChange={(event) =>
+                            updateProjectDraft("contractor", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        Condition
+                        <select
+                          value={draft.condition ?? ""}
+                          onChange={(event) =>
+                            updateProjectDraft("condition", event.target.value)
+                          }
+                        >
+                          <option value="">Select condition</option>
+                          <option>Good</option>
+                          <option>Fair</option>
+                          <option>Poor</option>
+                          <option>Need Replacement</option>
                         </select>
                       </label>
                       <label>
@@ -866,6 +959,29 @@ function InfrastructureContent({
                           value={draft.budget}
                           onChange={(event) =>
                             updateProjectDraft("budget", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        Started
+                        <input
+                          type="date"
+                          value={draft.dateStarted ?? ""}
+                          onChange={(event) =>
+                            updateProjectDraft("dateStarted", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        Completed
+                        <input
+                          type="date"
+                          value={draft.dateCompleted ?? ""}
+                          onChange={(event) =>
+                            updateProjectDraft(
+                              "dateCompleted",
+                              event.target.value,
+                            )
                           }
                         />
                       </label>

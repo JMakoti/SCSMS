@@ -32,6 +32,8 @@ import {
   createSchool,
   updateSchool,
 } from "@/repository/school";
+import { saveInfrastructureFacility } from "@/repository/infrastructure";
+import { updateStaffMember } from "@/repository/staff";
 import { chooseSchoolLogoFile } from "@/lib/choose-school-logo-file";
 import { getWardByName, updateWard } from "@/repository/ward";
 
@@ -332,6 +334,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             wardCode={editDialog.wardCode}
             onClose={() => setEditDialog(null)}
             onSaveSchool={updateSchool}
+            onSaveStaff={updateStaffMember}
+            onSaveInfrastructureFacility={saveInfrastructureFacility}
             onChooseFile={chooseSchoolLogoFile}
             onSaveWard={
               editDialog.active === "Ward"

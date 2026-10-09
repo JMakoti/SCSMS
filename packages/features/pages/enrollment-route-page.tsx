@@ -7,16 +7,25 @@ import {
   GradeEnrollmentPage,
 } from "../pages/enrollment-page";
 import { RecordDetail } from "./record-detail";
+import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
 
-export function EnrollmentRoutePage() {
+export function EnrollmentRoutePage({
+  onSaveEnrollmentGrade,
+}: {
+  onSaveEnrollmentGrade?: (input: EnrollmentGradeSaveInput) => Promise<void>;
+}) {
   return (
     <Suspense fallback={null}>
-      <EnrollmentRoutePageContent />
+      <EnrollmentRoutePageContent onSaveEnrollmentGrade={onSaveEnrollmentGrade} />
     </Suspense>
   );
 }
 
-function EnrollmentRoutePageContent() {
+function EnrollmentRoutePageContent({
+  onSaveEnrollmentGrade,
+}: {
+  onSaveEnrollmentGrade?: (input: EnrollmentGradeSaveInput) => Promise<void>;
+}) {
   const router = useRouter();
   const query = useSearchParams();
   const item = query.get("item");
@@ -28,6 +37,7 @@ function EnrollmentRoutePageContent() {
         active="Enrollment"
         item={item}
         onBack={() => router.push("/enrollment")}
+        onSaveEnrollmentGrade={onSaveEnrollmentGrade}
       />
     );
   }

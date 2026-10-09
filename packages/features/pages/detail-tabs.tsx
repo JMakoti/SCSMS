@@ -34,6 +34,29 @@ import PerformanceContent from "../pages/performance-page";
 import { EnrollmentGradeTable } from "../pages/enrollment-page";
 import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
 import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
+import type {
+  AddContactFormValues,
+  InfrastructureProjectFormValues,
+} from "../types/forms";
+
+type InfrastructureProjectActions = {
+  onCreateInfrastructureProject?: (
+    input: InfrastructureProjectFormValues,
+  ) => Promise<string | void>;
+  onUpdateInfrastructureProject?: (
+    projectId: string,
+    input: InfrastructureProjectFormValues,
+  ) => Promise<void>;
+  onDeleteInfrastructureProject?: (projectId: string) => Promise<void>;
+};
+type ContactActions = {
+  onCreateContact?: (values: AddContactFormValues) => Promise<void>;
+  onUpdateContact?: (
+    contactId: string,
+    values: Partial<AddContactFormValues>,
+  ) => Promise<void>;
+  onDeleteContact?: (contactId: string) => Promise<void>;
+};
 import { useFeatureData, type FeatureData, type FeatureReport } from "../data/feature-data-context";
 import { ExportMenu } from "../ui/export-menu";
 
@@ -831,6 +854,12 @@ export function DetailTabs({
   onTabChange,
   onSaveEnrollmentGrade,
   onSaveInfrastructureFacility,
+  onCreateInfrastructureProject,
+  onUpdateInfrastructureProject,
+  onDeleteInfrastructureProject,
+  onCreateContact,
+  onUpdateContact,
+  onDeleteContact,
 }: {
   active: string;
   item: string;
@@ -839,7 +868,8 @@ export function DetailTabs({
   onSaveInfrastructureFacility?: (
     input: InfrastructureFacilitySaveInput,
   ) => Promise<void>;
-}) {
+} & InfrastructureProjectActions &
+  ContactActions) {
   const [tab, setTab] = useState("Overview");
   const [termId, setTermId] = useState("");
   const { currentAcademicYear } = useAcademicYear();
@@ -918,9 +948,19 @@ export function DetailTabs({
           detail
           school={item}
           onSaveFacility={onSaveInfrastructureFacility}
+          onCreateProject={onCreateInfrastructureProject}
+          onUpdateProject={onUpdateInfrastructureProject}
+          onDeleteProject={onDeleteInfrastructureProject}
         />
       )}
-      {tab === "Contacts" && <SchoolContactsContent school={item} />}
+      {tab === "Contacts" && (
+        <SchoolContactsContent
+          school={item}
+          onCreateContact={onCreateContact}
+          onUpdateContact={onUpdateContact}
+          onDeleteContact={onDeleteContact}
+        />
+      )}
       {tab === "Enrollment" && active === "Schools" && (
         <div className="enrollment-tab-content">
           <div className="term-cards">

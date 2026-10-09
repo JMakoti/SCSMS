@@ -1,7 +1,12 @@
 "use client";
 
 import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
-import { saveInfrastructureFacility } from "@/repository/infrastructure";
+import {
+  createInfrastructureProject,
+  deleteInfrastructureProject,
+  saveInfrastructureFacility,
+  updateInfrastructureProject,
+} from "@/repository/infrastructure";
 
 export default function InfrastructureDetailDesktop({ item }: { item: string }) {
   return (
@@ -9,6 +14,9 @@ export default function InfrastructureDetailDesktop({ item }: { item: string }) 
       active="Infrastructure"
       item={item}
       onSaveInfrastructureFacility={saveInfrastructureFacility}
+      onCreateInfrastructureProject={createInfrastructureProject}
+      onUpdateInfrastructureProject={updateInfrastructureProject}
+      onDeleteInfrastructureProject={deleteInfrastructureProject}
     />
   );
 }

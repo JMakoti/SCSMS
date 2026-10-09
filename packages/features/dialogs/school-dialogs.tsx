@@ -26,7 +26,12 @@ export function AddContactDialog({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState(false);
   const { register, handleSubmit } = useForm<AddContactFormValues>({
     resolver: zodResolver(addContactSchema),
-    defaultValues: { school: "", role: "Head teacher", status: "Active" },
+    defaultValues: {
+      school: "",
+      role: "Head teacher",
+      phone2: "",
+      status: "Active",
+    },
   });
   return (
     <div className="overlay" onClick={onClose}>
@@ -85,7 +90,8 @@ export function AddContactDialog({ onClose }: { onClose: () => void }) {
                     <option>Head teacher</option>
                     <option>Deputy head teacher</option>
                     <option>School bursar</option>
-                    <option>School secretary</option>
+                    <option>Board chair</option>
+                    <option>Senior teacher</option>
                   </select>
                 </label>
                 <label>
@@ -110,6 +116,14 @@ export function AddContactDialog({ onClose }: { onClose: () => void }) {
                     {...register("phone")}
                     type="tel"
                     placeholder="+254 700 000 000"
+                  />
+                </label>
+                <label>
+                  Phone number 2
+                  <input
+                    {...register("phone2")}
+                    type="tel"
+                    placeholder="+254 700 000 001"
                   />
                 </label>
                 <label>

@@ -6,6 +6,7 @@ import type {
   AddStaffFormValues,
   EditRecordFormValues,
 } from "@scsms/features/types/forms";
+import { writeSchoolAudit } from "./audit";
 
 export type Staff = typeof staff.$inferSelect;
 export type StaffDetails = Staff & {
@@ -49,6 +50,53 @@ async function resolveSchoolId(schoolName: string | undefined) {
   }
 
   return school.id;
+}
+
+async function resolveSchool(schoolName: string | undefined) {
+  const name = required(schoolName, "Assigned school");
+  const [school] = await db
+    .select({ id: schools.id, displayName: schools.displayName })
+    .from(schools)
+    .where(eq(schools.displayName, name))
+    .limit(1);
+
+  if (!school) {
+    throw new Error(`School "${name}" was not found in the local school registry.`);
+  }
+
+  return school;
+}
+
+function getSchoolInitials(schoolName: string) {
+  const initials = schoolName
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+
+  return initials || "SCH";
+}
+
+async function generateStaffNumber(schoolName: string | undefined) {
+  const school = await resolveSchool(schoolName);
+  const prefix = `STF-${getSchoolInitials(school.displayName)}-`;
+  const records = await db
+    .select({ staffNumber: staff.staffNumber })
+    .from(staff)
+    .where(eq(staff.schoolId, school.id));
+  const nextNumber =
+    records.reduce((max, record) => {
+      const current = record.staffNumber ?? "";
+      if (!current.startsWith(prefix)) return max;
+      const parsed = Number(current.slice(prefix.length));
+      return Number.isInteger(parsed) ? Math.max(max, parsed) : max;
+    }, 0) + 1;
+
+  return {
+    schoolId: school.id,
+    staffNumber: `${prefix}${String(nextNumber).padStart(3, "0")}`,
+  };
 }
 
 function mapEmploymentType(value: string) {
@@ -129,10 +177,13 @@ export async function getStaffMemberDetails(id: string) {
 
 export async function createStaffMember(input: AddStaffFormValues) {
   const { firstName, lastName } = splitName(input.fullName);
-  const schoolId = await resolveSchoolId(input.assignedSchool);
+  const { schoolId, staffNumber } = await generateStaffNumber(
+    input.assignedSchool,
+  );
   const designation = required(input.designation, "Designation");
 
-  await db.insert(staff).values({
+  const values = {
+    staffNumber,
     firstName,
     lastName,
     schoolId,
@@ -144,7 +195,9 @@ export async function createStaffMember(input: AddStaffFormValues) {
     email: optional(input.email),
     phone: optional(input.phone),
     hiredOn: optional(input.dateJoined),
-  });
+  };
+  await db.insert(staff).values(values);
+  await writeSchoolAudit("created staff member", schoolId, null, values);
 }
 
 export async function updateStaffMember(id: string, input: EditRecordFormValues) {
@@ -189,6 +242,12 @@ export async function updateStaffMember(id: string, input: EditRecordFormValues)
   }
 
   await db.update(staff).set(updates).where(eq(staff.id, id));
+  await writeSchoolAudit(
+    "updated staff member",
+    updates.schoolId ?? existing.schoolId,
+    existing,
+    { ...existing, ...updates },
+  );
 }
 
 export async function deleteStaffMember(id: string) {
@@ -198,4 +257,5 @@ export async function deleteStaffMember(id: string) {
   }
 
   await db.delete(staff).where(eq(staff.id, id));
+  await writeSchoolAudit("deleted staff member", existing.schoolId, existing, null);
 }

@@ -1,4 +1,4 @@
-import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
+import { ContactDetailWeb } from "./contact-detail-web";
 
 export default async function ContactDetailPage({
   params,
@@ -7,10 +7,5 @@ export default async function ContactDetailPage({
 }) {
   const { item } = await params;
 
-  return (
-    <RecordDetailRoutePage
-      active="School Contacts"
-      item={decodeURIComponent(item)}
-    />
-  );
+  return <ContactDetailWeb item={decodeURIComponent(item)} />;
 }

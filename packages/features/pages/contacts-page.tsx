@@ -13,12 +13,23 @@ export function LegacyAddContactDialog({
   onClose,
   school,
   schools,
+  contact,
+  onSave,
+  onUpdate,
 }: {
   onClose: () => void;
   school: string;
   schools: ReturnType<typeof useFeatureData>["schools"];
+  contact?: ReturnType<typeof useFeatureData>["contacts"][number] | null;
+  onSave?: (values: AddContactFormValues) => Promise<void>;
+  onUpdate?: (
+    contactId: string,
+    values: Partial<AddContactFormValues>,
+  ) => Promise<void>;
 }) {
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const registrySchools = [...schools].sort((a, b) =>
     a.displayName.localeCompare(b.displayName),
   );
@@ -30,10 +41,42 @@ export function LegacyAddContactDialog({
     resolver: zodResolver(addContactSchema),
     defaultValues: {
       school: selectedSchool?.id ?? "",
-      role: "Head teacher",
-      status: "Active",
+      role: contact?.role ?? "Head teacher",
+      fullName: contact?.person.name ?? "",
+      email: contact?.person.email ?? "",
+      phone: contact?.phone ?? "",
+      phone2: contact?.phone2 ?? "",
+      status: contact?.isActive === false ? "Inactive" : "Active",
     },
   });
+  const saveContact = async (values: AddContactFormValues) => {
+    if (contact?.id) {
+      if (!onUpdate) {
+        setSaveError("Contact updating is not configured.");
+        return;
+      }
+    } else if (!onSave) {
+      setSaveError("Contact saving is not configured.");
+      return;
+    }
+    setSaving(true);
+    setSaveError("");
+    try {
+      if (contact?.id) {
+        await onUpdate?.(contact.id, values);
+      } else {
+        await onSave?.(values);
+      }
+      window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      setSaved(true);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "The contact could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <div className="overlay" onClick={onClose}>
       <div
@@ -45,8 +88,12 @@ export function LegacyAddContactDialog({
         <div className="dialog-head">
           <div>
             <span className="eyebrow">Contact management</span>
-            <h2>Add contact</h2>
-            <p>Create a contact record for a school.</p>
+            <h2>{contact ? "Edit contact" : "Add contact"}</h2>
+            <p>
+              {contact
+                ? "Update this school contact record."
+                : "Create a contact record for a school."}
+            </p>
           </div>
           <button
             className="icon-button"
@@ -63,7 +110,7 @@ export function LegacyAddContactDialog({
               <Check />
             </div>
             <h3>Contact saved</h3>
-            <p>The contact has been added to the synchronization queue.</p>
+            <p>The contact has been saved.</p>
             <button className="outline-button" type="button" onClick={onClose}>
               Done
             </button>
@@ -71,8 +118,9 @@ export function LegacyAddContactDialog({
         ) : (
           <form
             className="modal-form"
-            onSubmit={handleSubmit(() => setSaved(true))}
+            onSubmit={handleSubmit(saveContact)}
           >
+            {saveError && <p role="alert">{saveError}</p>}
             <div className="form-section">
               <h3>Contact details</h3>
               <div className="form-grid">
@@ -117,6 +165,21 @@ export function LegacyAddContactDialog({
                     placeholder="+254 700 000 000"
                   />
                 </label>
+                <label>
+                  Phone number 2
+                  <input
+                    {...register("phone2")}
+                    type="tel"
+                    placeholder="+254 700 000 001"
+                  />
+                </label>
+                <label>
+                  Status
+                  <select {...register("status")}>
+                    <option>Active</option>
+                    <option>Inactive</option>
+                  </select>
+                </label>
               </div>
             </div>
             <div className="dialog-footer">
@@ -127,8 +190,12 @@ export function LegacyAddContactDialog({
               >
                 Cancel
               </button>
-              <button className="modal-primary-button" type="submit">
-                Save contact
+              <button
+                className="modal-primary-button"
+                type="submit"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : contact ? "Save changes" : "Save contact"}
               </button>
             </div>
           </form>
@@ -138,9 +205,30 @@ export function LegacyAddContactDialog({
   );
 }
 
-function SchoolContactsContent({ school }: { school?: string }) {
+function SchoolContactsContent({
+  school,
+  onCreateContact,
+  onUpdateContact,
+  onDeleteContact,
+}: {
+  school?: string;
+  onCreateContact?: (values: AddContactFormValues) => Promise<void>;
+  onUpdateContact?: (
+    contactId: string,
+    values: Partial<AddContactFormValues>,
+  ) => Promise<void>;
+  onDeleteContact?: (contactId: string) => Promise<void>;
+}) {
   const [showContactModal, setShowContactModal] = useState(false);
-  const [deleteItem, setDeleteItem] = useState<string | null>(null);
+  const [editingContact, setEditingContact] =
+    useState<ReturnType<typeof useFeatureData>["contacts"][number] | null>(
+      null,
+    );
+  const [deleteItem, setDeleteItem] =
+    useState<ReturnType<typeof useFeatureData>["contacts"][number] | null>(
+      null,
+    );
+  const [deleteError, setDeleteError] = useState("");
   const { schools, contacts } = useFeatureData();
   const registrySchools = [...schools].sort((a, b) =>
     a.displayName.localeCompare(b.displayName),
@@ -156,16 +244,40 @@ function SchoolContactsContent({ school }: { school?: string }) {
     <div className="school-contacts-grid">
       {deleteItem && (
         <ConfirmDeleteDialog
-          item={deleteItem}
+          item={deleteItem.title}
           onCancel={() => setDeleteItem(null)}
-          onConfirm={() => setDeleteItem(null)}
+          onConfirm={async () => {
+            if (!onDeleteContact) {
+              setDeleteError("Contact deletion is not configured.");
+              return;
+            }
+            setDeleteError("");
+            try {
+              await onDeleteContact(deleteItem.id);
+              window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+              setDeleteItem(null);
+            } catch (error) {
+              setDeleteError(
+                error instanceof Error
+                  ? error.message
+                  : "The contact could not be deleted.",
+              );
+            }
+          }}
+          error={deleteError}
         />
       )}
       {showContactModal && (
         <LegacyAddContactDialog
           school={selectedSchool?.displayName ?? ""}
           schools={schools}
-          onClose={() => setShowContactModal(false)}
+          contact={editingContact}
+          onSave={onCreateContact}
+          onUpdate={onUpdateContact}
+          onClose={() => {
+            setShowContactModal(false);
+            setEditingContact(null);
+          }}
         />
       )}
       <div className="contact-page-action">
@@ -175,6 +287,7 @@ function SchoolContactsContent({ school }: { school?: string }) {
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
+            setEditingContact(null);
             setShowContactModal(true);
           }}
         >
@@ -183,7 +296,7 @@ function SchoolContactsContent({ school }: { school?: string }) {
         </button>
       </div>
       {groups.map((group) => (
-        <section className="panel school-contact-card" key={group.title}>
+        <section className="panel school-contact-card" key={group.id}>
           <div className="school-contact-heading">
             <div className="school-contact-avatar">
               <Users />
@@ -196,19 +309,16 @@ function SchoolContactsContent({ school }: { school?: string }) {
               <button
                 className="edit-school-button contact-action-button"
                 aria-label={`Edit ${group.title}`}
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent("scsms-edit-record", {
-                      detail: { active: "School Contacts", item: group.title },
-                    }),
-                  )
-                }
+                onClick={() => {
+                  setEditingContact(group);
+                  setShowContactModal(true);
+                }}
               >
                 <Pencil />
               </button>
               <button
                 aria-label={`Delete ${group.title}`}
-                onClick={() => setDeleteItem(group.title)}
+                onClick={() => setDeleteItem(group)}
               >
                 <Trash2 />
               </button>
@@ -222,11 +332,9 @@ function SchoolContactsContent({ school }: { school?: string }) {
               <a href={`mailto:${group.person.email}`}>{group.person.email}</a>
             </div>
             <div className="school-contact-divider" />
-            {group.person.contacts.map((contact) => (
+            {group.person.contacts.map((contact, index) => (
               <div className="school-contact-row" key={contact.label}>
-                <span className="contact-number">
-                  {contact.label.includes("2") ? "2" : "1"}
-                </span>
+                <span className="contact-number">{index + 1}</span>
                 <div>
                   <strong>{contact.label}</strong>
                   <span>{contact.phone}</span>

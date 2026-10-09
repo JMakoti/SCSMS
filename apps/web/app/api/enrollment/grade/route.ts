@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/session";
+import { writeSchoolAudit } from "@/lib/school-audit-server";
 import { db } from "@scsms/db/postgres";
 import {
   academicYears,
@@ -77,6 +78,8 @@ export async function PATCH(request: Request) {
       );
     }
 
+    let auditBefore: unknown = null;
+    let auditAfter: unknown = null;
     await db.transaction(async (transaction) => {
       let [snapshot] = await transaction
         .select({ id: enrollmentSnapshots.id })
@@ -102,6 +105,27 @@ export async function PATCH(request: Request) {
         snapshot = { id: snapshotId };
       }
 
+      const [existingGrade] = await transaction
+        .select()
+        .from(enrollmentGradeRows)
+        .where(
+          and(
+            eq(enrollmentGradeRows.snapshotId, snapshot.id),
+            eq(enrollmentGradeRows.grade, values.grade),
+          ),
+        )
+        .limit(1);
+      auditBefore = existingGrade ?? null;
+      auditAfter = {
+        ...(existingGrade ?? {}),
+        snapshotId: snapshot.id,
+        grade: values.grade,
+        gradeBand: values.gradeBand,
+        male: values.male,
+        female: values.female,
+        total: values.male + values.female,
+      };
+
       await transaction
         .insert(enrollmentGradeRows)
         .values({
@@ -122,6 +146,12 @@ export async function PATCH(request: Request) {
           },
         });
     });
+    await writeSchoolAudit(
+      "saved enrollment grade",
+      values.schoolId,
+      auditBefore,
+      auditAfter,
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

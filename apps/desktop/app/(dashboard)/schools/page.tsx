@@ -5,7 +5,18 @@ import { chooseSchoolLogoFile } from "@/lib/choose-school-logo-file";
 import { resolveSchoolLogo } from "@/lib/resolve-school-logo";
 import { createSchool, deleteSchool } from "@/repository/school";
 import { saveEnrollmentGrade } from "@/repository/enrollment";
-import { saveInfrastructureFacility } from "@/repository/infrastructure";
+import {
+  createInfrastructureProject,
+  deleteInfrastructureProject,
+  saveInfrastructureFacility,
+  updateInfrastructureProject,
+} from "@/repository/infrastructure";
+import { createContact, deleteContact, updateContact } from "@/repository/contact";
+import {
+  createSubjectCombination,
+  deleteSubjectCombination,
+  updateSubjectCombination,
+} from "@/repository/subject-combinations";
 
 export default function SchoolsPage() {
   return (
@@ -16,6 +27,15 @@ export default function SchoolsPage() {
       resolveLogo={resolveSchoolLogo}
       onSaveEnrollmentGrade={saveEnrollmentGrade}
       onSaveInfrastructureFacility={saveInfrastructureFacility}
+      onCreateInfrastructureProject={createInfrastructureProject}
+      onUpdateInfrastructureProject={updateInfrastructureProject}
+      onDeleteInfrastructureProject={deleteInfrastructureProject}
+      onCreateContact={createContact}
+      onUpdateContact={updateContact}
+      onDeleteContact={deleteContact}
+      onCreateSubjectCombination={createSubjectCombination}
+      onUpdateSubjectCombination={updateSubjectCombination}
+      onDeleteSubjectCombination={deleteSubjectCombination}
     />
   );
 }

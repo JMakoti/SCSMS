@@ -1,5 +1,5 @@
-import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
 import { generateItemStaticParams } from "../../../static-params";
+import { ContactDetailDesktop } from "./contact-detail-desktop";
 
 export function generateStaticParams() {
   return generateItemStaticParams("School Contacts");
@@ -12,10 +12,5 @@ export default async function ContactDetailPage({
 }) {
   const { item } = await params;
 
-  return (
-    <RecordDetailRoutePage
-      active="School Contacts"
-      item={decodeURIComponent(item)}
-    />
-  );
+  return <ContactDetailDesktop item={decodeURIComponent(item)} />;
 }

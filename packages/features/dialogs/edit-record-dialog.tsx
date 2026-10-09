@@ -11,6 +11,7 @@ import type {
   EditSchoolRecordFormValues,
   EditWardRecordFormValues,
 } from "../types/forms";
+import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
 import { useFeatureData } from "../data/feature-data-context";
 import { useAcademicYear } from "../academic-years/academic-year-context";
 import {
@@ -56,6 +57,8 @@ export function EditRecordDialog({
   onClose,
   onSaveSchool,
   onSaveWard,
+  onSaveStaff,
+  onSaveInfrastructureFacility,
   onChooseFile,
   wardCode,
 }: {
@@ -69,6 +72,10 @@ export function EditRecordDialog({
     values: EditSchoolRecordFormValues,
   ) => Promise<void>;
   onSaveWard?: (values: EditWardRecordFormValues) => Promise<void>;
+  onSaveStaff?: (staffId: string, values: EditRecordFormValues) => Promise<void>;
+  onSaveInfrastructureFacility?: (
+    input: InfrastructureFacilitySaveInput,
+  ) => Promise<void>;
   onChooseFile?: () => Promise<string | null>;
   wardCode?: string;
 }) {
@@ -79,6 +86,7 @@ export function EditRecordDialog({
     wardOptions,
     subCounties,
     enrollmentRows,
+    infrastructureFacilities,
     performanceRecords,
     performanceSubjects,
     terms,
@@ -99,7 +107,9 @@ export function EditRecordDialog({
       }
     : null;
   const schoolInfo =
-    active === "Schools"
+    active === "Schools" ||
+    active === "Infrastructure" ||
+    active === "School Performance"
       ? (schools.find(
         (school) =>
           school.id === schoolId ||
@@ -120,6 +130,22 @@ export function EditRecordDialog({
       row.schoolId === schoolInfo?.id &&
       row.academicYearId === currentAcademicYear.id,
   );
+  const infrastructureRows = infrastructureFacilities.filter(
+    (row) =>
+      row.schoolId === schoolInfo?.id &&
+      row.academicYearId === currentAcademicYear.id,
+  );
+  const infrastructureRowByName = (name: string) =>
+    infrastructureRows.find((row) =>
+      row.facility.toLowerCase().includes(name.toLowerCase()),
+    );
+  const classroomInfrastructure = infrastructureRowByName("classroom");
+  const electricityInfrastructure =
+    infrastructureRowByName("electricity") ??
+    infrastructureRowByName("power");
+  const waterInfrastructure =
+    infrastructureRowByName("water") ??
+    infrastructureRowByName("borehole");
   const latestPerformance = performanceRecords
     .filter((record) => record.schoolId === schoolInfo?.id)
     .sort((a, b) => b.year.localeCompare(a.year))[0];
@@ -341,6 +367,19 @@ export function EditRecordDialog({
       return values[field.name] ?? "";
     }
 
+    if (active === "Infrastructure") {
+      const values: Record<string, string> = {
+        School: item,
+        Classrooms: String(classroomInfrastructure?.available ?? ""),
+        "Good condition": String(classroomInfrastructure?.good ?? ""),
+        "Needs repair": String(classroomInfrastructure?.needsRepair ?? ""),
+        Electricity: electricityInfrastructure?.status ?? "",
+        Water: waterInfrastructure?.status ?? "",
+      };
+
+      return values[field.name] ?? "";
+    }
+
     return field.label === "School" || field.label === "Assigned school"
       ? item
       : field.label === "Full name"
@@ -381,6 +420,33 @@ export function EditRecordDialog({
     },
   });
   const watchedFields = watch("fields") as Record<string, string | undefined>;
+  const parseNonNegativeInteger = (
+    value: string | undefined,
+    label: string,
+  ) => {
+    const parsed = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new Error(`${label} must be a non-negative whole number.`);
+    }
+
+    return parsed;
+  };
+  const normalizeFacilityStatus = (
+    value: string | undefined,
+  ): InfrastructureFacilitySaveInput["status"] => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    if (!normalized) return "Pending";
+    if (normalized.includes("unavailable") || normalized === "no") {
+      return "Unavailable";
+    }
+    if (normalized.includes("repair") || normalized.includes("poor")) {
+      return "Needs repair";
+    }
+    if (normalized.includes("complete")) return "Completed";
+    if (normalized.includes("pending")) return "Pending";
+
+    return "Active";
+  };
   const saveRecord = async (
     values:
       | EditRecordFormValues
@@ -410,6 +476,67 @@ export function EditRecordDialog({
             },
           },
         );
+        window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      } else if (active === "Staff") {
+        if (!onSaveStaff || !staffInfo?.id) {
+          throw new Error(
+            "Staff changes cannot be saved because the staff database handler is unavailable.",
+          );
+        }
+        await onSaveStaff(staffInfo.id, values as EditRecordFormValues);
+        window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      } else if (active === "Infrastructure") {
+        if (!onSaveInfrastructureFacility || !schoolInfo) {
+          throw new Error(
+            "Infrastructure changes cannot be saved because the database handler is unavailable.",
+          );
+        }
+        const formFields = (values as EditRecordFormValues).fields;
+        const classroomAvailable = parseNonNegativeInteger(
+          formFields.Classrooms,
+          "Classrooms",
+        );
+        const classroomGood = parseNonNegativeInteger(
+          formFields["Good condition"],
+          "Good condition",
+        );
+        const classroomNeedsRepair = parseNonNegativeInteger(
+          formFields["Needs repair"],
+          "Needs repair",
+        );
+
+        await onSaveInfrastructureFacility({
+          schoolId: schoolInfo.id,
+          academicYearId: currentAcademicYear.id,
+          previousFacility: classroomInfrastructure?.facility ?? "Classrooms",
+          facility: classroomInfrastructure?.facility ?? "Classrooms",
+          available: classroomAvailable,
+          good: classroomGood,
+          needsRepair: classroomNeedsRepair,
+          status: classroomNeedsRepair > 0 ? "Needs repair" : "Active",
+        });
+        await onSaveInfrastructureFacility({
+          schoolId: schoolInfo.id,
+          academicYearId: currentAcademicYear.id,
+          previousFacility:
+            electricityInfrastructure?.facility ?? "Electricity connection",
+          facility:
+            electricityInfrastructure?.facility ?? "Electricity connection",
+          available: electricityInfrastructure?.available ?? 1,
+          good: electricityInfrastructure?.good ?? 1,
+          needsRepair: electricityInfrastructure?.needsRepair ?? 0,
+          status: normalizeFacilityStatus(formFields.Electricity),
+        });
+        await onSaveInfrastructureFacility({
+          schoolId: schoolInfo.id,
+          academicYearId: currentAcademicYear.id,
+          previousFacility: waterInfrastructure?.facility ?? "Water points",
+          facility: waterInfrastructure?.facility ?? "Water points",
+          available: waterInfrastructure?.available ?? 1,
+          good: waterInfrastructure?.good ?? 1,
+          needsRepair: waterInfrastructure?.needsRepair ?? 0,
+          status: normalizeFacilityStatus(formFields.Water),
+        });
         window.dispatchEvent(new Event("scsms:feature-data-refresh"));
       }
       setSaved(true);

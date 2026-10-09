@@ -1,4 +1,5 @@
 import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
+import StaffDetailWeb from "./staff-detail-web";
 
 export default async function StaffDetailPage({
   params,
@@ -7,7 +8,5 @@ export default async function StaffDetailPage({
 }) {
   const { item } = await params;
 
-  return (
-    <RecordDetailRoutePage active="Staff" item={decodeURIComponent(item)} />
-  );
+  return <StaffDetailWeb item={decodeURIComponent(item)} />;
 }

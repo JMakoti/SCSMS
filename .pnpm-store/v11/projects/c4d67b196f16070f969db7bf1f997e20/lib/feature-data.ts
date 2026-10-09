@@ -36,6 +36,39 @@ import {
 
 const display = (value: string | null | undefined) =>
   value ? value.replaceAll("_", " ") : "Not recorded";
+const readAuditSchoolId = (record: {
+  entityType: string;
+  entityId: string | null;
+  beforeJson: string | null;
+  afterJson: string | null;
+}) => {
+  if (record.entityType === "school") return record.entityId ?? "";
+
+  for (const json of [record.afterJson, record.beforeJson]) {
+    if (!json) continue;
+    try {
+      const parsed: unknown = JSON.parse(json);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        "schoolId" in parsed &&
+        typeof parsed.schoolId === "string"
+      ) {
+        return parsed.schoolId;
+      }
+    } catch {
+      // Ignore legacy audit payloads that were not stored as JSON.
+    }
+  }
+
+  return "";
+};
+const auditIcon = (entityType: string) => {
+  if (entityType.includes("infrastructure")) return "Building2" as const;
+  if (entityType.includes("staff")) return "UserCog" as const;
+  if (entityType.includes("enrollment")) return "Users" as const;
+  return "Pencil" as const;
+};
 
 function mapInstitutionType(level: string) {
   if (level === "junior") return "JUNIOR_SECONDARY" as const;
@@ -121,7 +154,7 @@ export async function loadDesktopFeatureData(
     listReportTemplates(),
     listReportRuns(),
     listWards(),
-    db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(50),
+    db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)),
     db.select().from(syncQueue),
     db.select().from(schoolSubjectCombinations),
   ]);
@@ -274,7 +307,12 @@ export async function loadDesktopFeatureData(
   });
 
   const contacts = contactRecords.map((contact) => ({
+    id: contact.id,
     schoolId: contact.schoolId ?? "",
+    role: display(contact.titleType),
+    phone: contact.phone,
+    phone2: contact.phone2 ?? "",
+    isActive: contact.isActive,
     title: display(contact.titleType),
     person: {
       name: contact.name,
@@ -297,6 +335,7 @@ export async function loadDesktopFeatureData(
       phone: member.phone ?? "",
       status: member.status === "active" ? "Active" as const : "In Active" as const,
       id: member.id,
+      staffNumber: member.staffNumber ?? "",
       schoolId: member.schoolId,
       assignedSchool: school?.displayName ?? "",
       employmentType: display(member.employmentType),
@@ -354,7 +393,9 @@ export async function loadDesktopFeatureData(
     school: schoolsById.get(project.schoolId)?.displayName ?? "",
     year: yearsById.get(project.academicYearId)?.name ?? "",
     termId: project.termId,
-    term: terms.find((term) => term.id === project.termId)?.name ?? "Not recorded",
+    term:
+      termRecords.find((term) => term.id === project.termId)?.name ??
+      "Not recorded",
     status: formatInfrastructureProjectStatus(project.status),
     budget: project.budgetAmount?.toString() ?? "Not recorded",
     detail: project.description ?? project.projectConditions,
@@ -415,13 +456,14 @@ export async function loadDesktopFeatureData(
     tone: "blue",
   }));
   const schoolHistoryActivities = auditRecords
-    .filter((record) => record.entityType === "school")
     .map((record) => ({
+      schoolId: readAuditSchoolId(record),
       title: display(record.action),
-      detail: record.entityId ?? "",
+      detail: display(record.entityType),
       time: record.createdAt,
-      icon: "Building2" as const,
-    }));
+      icon: auditIcon(record.entityType),
+    }))
+    .filter((activity) => activity.schoolId);
 
   const dashboardYearId = currentAcademicYearRecord?.id;
   const dashboardGenderDistribution = [

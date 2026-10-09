@@ -6,6 +6,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Pencil,
   School,
   Search,
   Users,
@@ -659,6 +660,9 @@ export function EnrollmentGradeTable({
           <span>Boys</span>
           <span>Girls</span>
           <span>Total learners</span>
+          <span>
+            <span className="sr-only">Actions</span>
+          </span>
         </div>
         {rows.map(([grade, male, female, total]) => (
           <div
@@ -688,8 +692,10 @@ export function EnrollmentGradeTable({
                   }
                   aria-label={`${grade} girls`}
                 />
+                <b>{draft.male + draft.female}</b>
                 <span className="grade-edit-actions">
                   <button
+                    type="button"
                     onClick={() => void saveEdit(grade)}
                     aria-label={`Save ${grade}`}
                     className="grade-save"
@@ -698,6 +704,7 @@ export function EnrollmentGradeTable({
                     <Check />
                   </button>
                   <button
+                    type="button"
                     onClick={cancelEdit}
                     aria-label={`Cancel ${grade}`}
                     className="grade-cancel"
@@ -708,19 +715,20 @@ export function EnrollmentGradeTable({
               </>
             ) : (
               <>
-                <button
-                  className="grade-number-button"
-                  onClick={() => startEdit(grade, Number(male), Number(female))}
-                >
-                  {male}
-                </button>
-                <button
-                  className="grade-number-button"
-                  onClick={() => startEdit(grade, Number(male), Number(female))}
-                >
-                  {female}
-                </button>
+                <span>{male}</span>
+                <span>{female}</span>
                 <b>{total}</b>
+                <span className="grade-edit-actions">
+                  <button
+                    type="button"
+                    className="grade-edit-button"
+                    onClick={() => startEdit(grade, Number(male), Number(female))}
+                    aria-label={`Edit ${grade}`}
+                    disabled={savingGrade === grade}
+                  >
+                    <Pencil />
+                  </button>
+                </span>
               </>
             )}
           </div>

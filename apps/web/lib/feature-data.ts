@@ -34,6 +34,39 @@ const display = (value: string | null | undefined) =>
   value ? value.replaceAll("_", " ") : "Not recorded";
 const iso = (value: Date | string | null | undefined) =>
   value instanceof Date ? value.toISOString() : value ?? "";
+const readAuditSchoolId = (record: {
+  entityType: string;
+  entityId: string | null;
+  beforeJson: string | null;
+  afterJson: string | null;
+}) => {
+  if (record.entityType === "school") return record.entityId ?? "";
+
+  for (const json of [record.afterJson, record.beforeJson]) {
+    if (!json) continue;
+    try {
+      const parsed: unknown = JSON.parse(json);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        "schoolId" in parsed &&
+        typeof parsed.schoolId === "string"
+      ) {
+        return parsed.schoolId;
+      }
+    } catch {
+      // Ignore legacy audit payloads that were not stored as JSON.
+    }
+  }
+
+  return "";
+};
+const auditIcon = (entityType: string) => {
+  if (entityType.includes("infrastructure")) return "Building2" as const;
+  if (entityType.includes("staff")) return "UserCog" as const;
+  if (entityType.includes("enrollment")) return "Users" as const;
+  return "Pencil" as const;
+};
 
 function mapInstitutionType(level: string) {
   if (level === "junior") return "JUNIOR_SECONDARY" as const;
@@ -107,7 +140,7 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
     db.select().from(reportRuns),
     db.select().from(wardTable),
     db.select().from(subCountyTable),
-    db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(50),
+    db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)),
     db.select().from(syncQueue),
     db.select().from(subjectCombinationTable),
   ]);
@@ -221,6 +254,7 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
     phone: member.phone ?? "",
     status: member.status === "active" ? "Active" as const : "In Active" as const,
     id: member.id,
+    staffNumber: member.staffNumber ?? "",
     schoolId: member.schoolId,
     assignedSchool: schoolsById.get(member.schoolId)?.displayName ?? "",
     employmentType: display(member.employmentType),
@@ -230,7 +264,12 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
     dateJoined: member.hiredOn ?? "",
   }));
   const contacts = contactRecords.map((contact) => ({
+    id: contact.id,
     schoolId: contact.schoolId ?? "",
+    role: display(contact.titleType),
+    phone: contact.phone,
+    phone2: contact.phone2 ?? "",
+    isActive: contact.isActive,
     title: display(contact.titleType),
     person: {
       name: contact.name,
@@ -398,13 +437,14 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
     tone: "blue",
   }));
   const schoolHistoryActivities = auditRecords
-    .filter((record) => record.entityType === "school")
     .map((record) => ({
+      schoolId: readAuditSchoolId(record),
       title: display(record.action),
-      detail: record.entityId ?? "",
+      detail: display(record.entityType),
       time: iso(record.createdAt),
-      icon: "Building2" as const,
-    }));
+      icon: auditIcon(record.entityType),
+    }))
+    .filter((activity) => activity.schoolId);
   const dashboardYearId =
     academicYearRecords.find((year) => year.isCurrent)?.id ??
     academicYearRecords[0]?.id;

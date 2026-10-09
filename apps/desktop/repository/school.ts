@@ -7,6 +7,7 @@ import {
   enrollmentSnapshots,
   infrastructureProjects,
   infrastructureSnapshots,
+  auditLogs,
   performanceRecords,
   reportRuns,
   schools,
@@ -32,6 +33,22 @@ export type SchoolDetails = School & {
   performanceRecords: Array<typeof performanceRecords.$inferSelect>;
   reportRuns: Array<typeof reportRuns.$inferSelect>;
 };
+
+async function writeSchoolAudit(
+  action: string,
+  schoolId: string,
+  before: unknown,
+  after: unknown,
+) {
+  await db.insert(auditLogs).values({
+    id: createLocalId(),
+    action,
+    entityType: "school",
+    entityId: schoolId,
+    beforeJson: before ? JSON.stringify(before) : null,
+    afterJson: after ? JSON.stringify(after) : null,
+  });
+}
 
 const institutionTypes: Record<
   AddSchoolFormValues["institutionType"],
@@ -292,18 +309,23 @@ export async function createSchool(input: AddSchoolFormValues) {
       `The school was not saved because its initial records could not be created: ${message}`,
     );
   }
+  await writeSchoolAudit("created school", schoolId, null, {
+    id: schoolId,
+    ...mapSchoolFields(input),
+    wardId,
+  });
 }
 
 export async function updateSchool(id: string, input: EditSchoolRecordFormValues) {
   const fields = input.fields;
   const schoolCode = required(fields.schoolCode, "School code");
-  const existing = await db
-    .select({ id: schools.id })
+  const [existing] = await db
+    .select()
     .from(schools)
     .where(eq(schools.id, id))
     .limit(1);
 
-  if (existing.length === 0) {
+  if (!existing) {
     throw new Error("This school no longer exists. Refresh the list and try again.");
   }
 
@@ -328,15 +350,20 @@ export async function updateSchool(id: string, input: EditSchoolRecordFormValues
   }
 
   const wardId = await resolveWardId(fields.ward);
+  const nextValues = {
+    ...mapSchoolFields(fields),
+    logoPath: optional(fields.filePath),
+    wardId,
+    updatedAt: new Date().toISOString(),
+  };
   await db
     .update(schools)
-    .set({
-      ...mapSchoolFields(fields),
-      logoPath: optional(fields.filePath),
-      wardId,
-      updatedAt: new Date().toISOString(),
-    })
+    .set(nextValues)
     .where(eq(schools.id, id));
+  await writeSchoolAudit("updated school", id, existing, {
+    ...existing,
+    ...nextValues,
+  });
 }
 
 export async function updateSchoolLogoPath(id: string, logoPath: string) {
@@ -349,6 +376,10 @@ export async function updateSchoolLogoPath(id: string, logoPath: string) {
     .update(schools)
     .set({ logoPath, updatedAt: new Date().toISOString() })
     .where(eq(schools.id, id));
+  await writeSchoolAudit("updated school logo", id, existing, {
+    ...existing,
+    logoPath,
+  });
 }
 
 export async function deleteSchool(id: string) {
@@ -358,4 +389,5 @@ export async function deleteSchool(id: string) {
   }
 
   await db.delete(schools).where(eq(schools.id, id));
+  await writeSchoolAudit("deleted school", id, existing, null);
 }

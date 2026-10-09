@@ -24,6 +24,29 @@ import { DetailTabs } from "../pages/detail-tabs";
 import { ExportMenu } from "../ui/export-menu";
 import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
 import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
+import type {
+  AddContactFormValues,
+  InfrastructureProjectFormValues,
+} from "../types/forms";
+
+type InfrastructureProjectActions = {
+  onCreateInfrastructureProject?: (
+    input: InfrastructureProjectFormValues,
+  ) => Promise<string | void>;
+  onUpdateInfrastructureProject?: (
+    projectId: string,
+    input: InfrastructureProjectFormValues,
+  ) => Promise<void>;
+  onDeleteInfrastructureProject?: (projectId: string) => Promise<void>;
+};
+type ContactActions = {
+  onCreateContact?: (values: AddContactFormValues) => Promise<void>;
+  onUpdateContact?: (
+    contactId: string,
+    values: Partial<AddContactFormValues>,
+  ) => Promise<void>;
+  onDeleteContact?: (contactId: string) => Promise<void>;
+};
 
 export function RecordDetail({
   active,
@@ -33,8 +56,15 @@ export function RecordDetail({
   wardDetail,
   wardCode: persistedWardCode,
   onDeleteWard,
+  onDeleteStaff,
   onSaveEnrollmentGrade,
   onSaveInfrastructureFacility,
+  onCreateInfrastructureProject,
+  onUpdateInfrastructureProject,
+  onDeleteInfrastructureProject,
+  onCreateContact,
+  onUpdateContact,
+  onDeleteContact,
 }: {
   active: string;
   item: string;
@@ -43,11 +73,13 @@ export function RecordDetail({
   wardDetail?: WardDetailRecord;
   wardCode?: string;
   onDeleteWard?: () => Promise<void>;
+  onDeleteStaff?: (staffId: string) => Promise<void>;
   onSaveEnrollmentGrade?: (input: EnrollmentGradeSaveInput) => Promise<void>;
   onSaveInfrastructureFacility?: (
     input: InfrastructureFacilitySaveInput,
   ) => Promise<void>;
-}) {
+} & InfrastructureProjectActions &
+  ContactActions) {
   const [selectedTab, setSelectedTab] = useState("Overview");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -61,6 +93,7 @@ export function RecordDetail({
     subCounties,
     reportTemplates,
     performanceRecords,
+    infrastructureFacilities,
   } = useFeatureData();
   const schoolDetail = schools.find(
     (school) =>
@@ -76,6 +109,31 @@ export function RecordDetail({
       record.schoolId === schoolDetail?.id &&
       record.academicYearId === currentAcademicYear.id,
   );
+  const infrastructureRows =
+    active === "Infrastructure"
+      ? infrastructureFacilities.filter(
+          (row) =>
+            row.schoolId === schoolDetail?.id &&
+            row.academicYearId === currentAcademicYear.id,
+        )
+      : [];
+  const infrastructureRowByName = (name: string) =>
+    infrastructureRows.find((row) =>
+      row.facility.toLowerCase().includes(name.toLowerCase()),
+    );
+  const classroomInfrastructure = infrastructureRowByName("classroom");
+  const electricityInfrastructure =
+    infrastructureRowByName("electricity") ??
+    infrastructureRowByName("power");
+  const waterInfrastructure =
+    infrastructureRowByName("water") ??
+    infrastructureRowByName("borehole");
+  const formatFacilitySummary = (
+    row: (typeof infrastructureRows)[number] | undefined,
+  ) =>
+    row
+      ? `${row.status} (${row.available.toLocaleString()} available)`
+      : "Not recorded";
   const defaultPerformanceLevel = item.toLowerCase().includes("junior")
     ? "Junior Secondary"
     : item.toLowerCase().includes("secondary") ||
@@ -106,7 +164,7 @@ export function RecordDetail({
     active === "Staff"
       ? staffRecords.find((record) => record.name === item)
       : null;
-  const staffId = staffDetail?.id ?? "Not provided";
+  const staffId = staffDetail?.staffNumber || "Not provided";
   const staffTscNo = staffDetail?.tscNo || "Not provided";
   const staffEmail = staffDetail?.email || "Not provided";
   const wardSchools =
@@ -214,7 +272,29 @@ export function RecordDetail({
         : active === "Infrastructure"
           ? [
               ["School", item],
-              ["Infrastructure", "Current project records"],
+              [
+                "Classrooms",
+                classroomInfrastructure
+                  ? classroomInfrastructure.available.toLocaleString()
+                  : "Not recorded",
+              ],
+              [
+                "Good condition",
+                classroomInfrastructure
+                  ? classroomInfrastructure.good.toLocaleString()
+                  : "Not recorded",
+              ],
+              [
+                "Needs repair",
+                classroomInfrastructure
+                  ? classroomInfrastructure.needsRepair.toLocaleString()
+                  : "Not recorded",
+              ],
+              [
+                "Electricity",
+                formatFacilitySummary(electricityInfrastructure),
+              ],
+              ["Water", formatFacilitySummary(waterInfrastructure)],
             ]
           : active === "School Contacts"
             ? [
@@ -324,6 +404,26 @@ export function RecordDetail({
   };
   const confirmDelete = async () => {
     setDeleteError("");
+    if (active === "Staff") {
+      if (!onDeleteStaff || !staffDetail?.id) {
+        setDeleteError(
+          "This staff member cannot be deleted because its database record is unavailable.",
+        );
+        return;
+      }
+      try {
+        await onDeleteStaff(staffDetail.id);
+        window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+        onBack();
+      } catch (error) {
+        setDeleteError(
+          error instanceof Error
+            ? error.message
+            : "Unable to delete the staff member.",
+        );
+      }
+      return;
+    }
     if (!onDeleteWard) {
       onBack();
       return;
@@ -645,6 +745,7 @@ export function RecordDetail({
                     detail: {
                       active,
                       item,
+                      staffId: active === "Staff" ? staffDetail?.id : undefined,
                       wardCode: active === "Ward" ? wardCode : undefined,
                       wardId: active === "Ward" ? resolvedWardId : undefined,
                     },
@@ -673,6 +774,12 @@ export function RecordDetail({
         onTabChange={setSelectedTab}
         onSaveEnrollmentGrade={onSaveEnrollmentGrade}
         onSaveInfrastructureFacility={onSaveInfrastructureFacility}
+        onCreateInfrastructureProject={onCreateInfrastructureProject}
+        onUpdateInfrastructureProject={onUpdateInfrastructureProject}
+        onDeleteInfrastructureProject={onDeleteInfrastructureProject}
+        onCreateContact={onCreateContact}
+        onUpdateContact={onUpdateContact}
+        onDeleteContact={onDeleteContact}
       />
       {active !== "School Performance" && (
         <div

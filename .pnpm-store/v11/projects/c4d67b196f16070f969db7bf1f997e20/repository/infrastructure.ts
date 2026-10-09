@@ -20,6 +20,7 @@ import {
   resolveSchoolId,
   resolveTermId,
 } from "./helpers";
+import { writeSchoolAudit } from "./audit";
 
 export type InfrastructureProject = typeof infrastructureProjects.$inferSelect;
 export type InfrastructureSnapshot = typeof infrastructureSnapshots.$inferSelect;
@@ -139,8 +140,10 @@ export async function createInfrastructureProject(
   input: InfrastructureProjectFormValues,
 ) {
   const academicYearId = await resolveAcademicYearId(input.targetYear);
-  await db.insert(infrastructureProjects).values({
-    schoolId: await resolveSchoolId(input.selectedSchool),
+  const schoolId = await resolveSchoolId(input.selectedSchool);
+  const values = {
+    id: createLocalId(),
+    schoolId,
     academicYearId,
     termId: await resolveTermId(input.term, academicYearId),
     projectName: required(input.projectName, "Project name"),
@@ -155,7 +158,9 @@ export async function createInfrastructureProject(
     startsOn: optional(input.dateStarted),
     completedOn: optional(input.dateCompleted),
     description: optional(input.description),
-  });
+  };
+  await db.insert(infrastructureProjects).values(values);
+  await writeSchoolAudit("created infrastructure project", schoolId, null, values);
 }
 
 export async function updateInfrastructureProject(
@@ -169,30 +174,34 @@ export async function updateInfrastructureProject(
     );
   }
 
+  const academicYearId = await resolveAcademicYearId(input.targetYear);
+  const schoolId = await resolveSchoolId(input.selectedSchool);
+  const updates = {
+    schoolId,
+    academicYearId,
+    termId: await resolveTermId(input.term, academicYearId),
+    projectName: required(input.projectName, "Project name"),
+    projectType: required(input.category, "Project category"),
+    projectContractor: required(input.contractor, "Contractor"),
+    status: mapProjectStatus(input.status),
+    projectConditions: required(
+      input.infrastructureCondition,
+      "Infrastructure condition",
+    ),
+    budgetAmount: optionalNumber(input.budget, "Budget"),
+    startsOn: optional(input.dateStarted),
+    completedOn: optional(input.dateCompleted),
+    description: optional(input.description),
+    updatedAt: new Date().toISOString(),
+  };
   await db
     .update(infrastructureProjects)
-    .set({
-      schoolId: await resolveSchoolId(input.selectedSchool),
-      academicYearId: await resolveAcademicYearId(input.targetYear),
-      termId: await resolveTermId(
-        input.term,
-        await resolveAcademicYearId(input.targetYear),
-      ),
-      projectName: required(input.projectName, "Project name"),
-      projectType: required(input.category, "Project category"),
-      projectContractor: required(input.contractor, "Contractor"),
-      status: mapProjectStatus(input.status),
-      projectConditions: required(
-        input.infrastructureCondition,
-        "Infrastructure condition",
-      ),
-      budgetAmount: optionalNumber(input.budget, "Budget"),
-      startsOn: optional(input.dateStarted),
-      completedOn: optional(input.dateCompleted),
-      description: optional(input.description),
-      updatedAt: new Date().toISOString(),
-    })
+    .set(updates)
     .where(eq(infrastructureProjects.id, id));
+  await writeSchoolAudit("updated infrastructure project", schoolId, existing, {
+    ...existing,
+    ...updates,
+  });
 }
 
 export async function deleteInfrastructureProject(id: string) {
@@ -204,6 +213,12 @@ export async function deleteInfrastructureProject(id: string) {
   }
 
   await db.delete(infrastructureProjects).where(eq(infrastructureProjects.id, id));
+  await writeSchoolAudit(
+    "deleted infrastructure project",
+    existing.schoolId,
+    existing,
+    null,
+  );
 }
 
 export async function listInfrastructureSnapshots() {
@@ -282,7 +297,7 @@ export async function saveInfrastructureFacility(
   const status = input.status.toLowerCase().replaceAll(" ", "_") as
     InfrastructureFacilityRow["status"];
   const [existingRow] = await db
-    .select({ id: infrastructureFacilityRows.id })
+    .select()
     .from(infrastructureFacilityRows)
     .where(
       and(
@@ -304,14 +319,20 @@ export async function saveInfrastructureFacility(
       .update(infrastructureFacilityRows)
       .set(rowValues)
       .where(eq(infrastructureFacilityRows.id, existingRow.id));
+    await writeSchoolAudit("saved infrastructure facility", input.schoolId, existingRow, {
+      ...existingRow,
+      ...rowValues,
+    });
     return;
   }
 
-  await db.insert(infrastructureFacilityRows).values({
+  const inserted = {
     id: createLocalId(),
     snapshotId,
     ...rowValues,
-  });
+  };
+  await db.insert(infrastructureFacilityRows).values(inserted);
+  await writeSchoolAudit("saved infrastructure facility", input.schoolId, null, inserted);
 }
 
 export async function getInfrastructureSnapshot(id: string) {

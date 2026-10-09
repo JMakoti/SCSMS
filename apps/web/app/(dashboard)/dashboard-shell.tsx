@@ -16,6 +16,8 @@ import type {
 } from "@scsms/features/types/forms";
 import type { SessionUser } from "../session-user";
 import { FeatureDataBoundary } from "./feature-data-boundary";
+import { saveInfrastructureFacility } from "@/lib/infrastructure";
+import { updateStaffMember } from "@/lib/staff";
 
 type EditDialogState = {
   active: string;
@@ -264,6 +266,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             wardId={editDialog.wardId}
             wardCode={editDialog.wardCode}
             onClose={() => setEditDialog(null)}
+            onSaveStaff={updateStaffMember}
+            onSaveInfrastructureFacility={saveInfrastructureFacility}
             onSaveWard={
               editableWardId
                 ? async (values: EditWardRecordFormValues) => {

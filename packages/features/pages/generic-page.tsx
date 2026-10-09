@@ -46,6 +46,7 @@ export function GenericPage({
   onDetail,
   wardRecords,
   onSaveWard,
+  onSaveStaff,
   wardLoading = false,
   wardLoadError = "",
 }: {
@@ -54,13 +55,15 @@ export function GenericPage({
   onDetail?: (item: string) => void;
   wardRecords?: WardSummary[];
   onSaveWard?: (values: AddWardFormValues) => Promise<void>;
+  onSaveStaff?: (values: AddStaffFormValues) => Promise<void>;
   wardLoading?: boolean;
   wardLoadError?: string;
 }) {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [showWardModal, setShowWardModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { schools, wards, moduleRecords, reportTemplates } = useFeatureData();
+  const { schools, staff, wards, moduleRecords, reportTemplates } =
+    useFeatureData();
   const icons = {
     BookOpen,
     Building2,
@@ -102,12 +105,16 @@ export function GenericPage({
       : schoolRegistryItems.length
         ? schoolRegistryItems
         : (moduleRecords[active] ?? []);
+  const staffByName = new Map(staff.map((record) => [record.name, record]));
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredModuleItems = moduleItems.filter((item, index) => {
     if (!normalizedQuery) return true;
     const ward = active === "Ward" ? wardSummaries[index] : null;
+    const staffRecord = active === "Staff" ? staffByName.get(item) : null;
     const details = ward
       ? `${ward.wardCode ?? ""} ${ward.schoolCount} ${ward.studentCount} ${ward.teacherCount}`
+      : staffRecord
+        ? `${staffRecord.assignedSchool} ${staffRecord.role} ${staffRecord.phone}`
       : `record reference ${String(index + 1).padStart(3, "0")}`;
     return `${item} ${details}`.toLowerCase().includes(normalizedQuery);
   });
@@ -143,7 +150,10 @@ export function GenericPage({
         }
       />
       {showStaffModal && (
-        <AddStaffDialog onClose={() => setShowStaffModal(false)} />
+        <AddStaffDialog
+          onClose={() => setShowStaffModal(false)}
+          onSave={onSaveStaff}
+        />
       )}
       {showWardModal && (
         <AddWardDialog
@@ -228,6 +238,7 @@ export function GenericPage({
           ) : filteredModuleItems.map((item) => {
             const i = moduleItems.indexOf(item);
             const ward = active === "Ward" ? wardSummaries[i] : null;
+            const staffRecord = active === "Staff" ? staffByName.get(item) : null;
 
             return (
               <div className="module-row" key={item}>
@@ -243,6 +254,8 @@ export function GenericPage({
                         ? "Last checked 2 minutes ago"
                         : active === "Ward"
                           ? `${ward?.wardCode ? `Ward ${ward.wardCode} - ` : ""}${ward?.schoolCount ?? 0} schools - ${ward?.studentCount.toLocaleString() ?? 0} learners - ${ward?.teacherCount.toLocaleString() ?? 0} teachers`
+                          : active === "Staff"
+                            ? staffRecord?.assignedSchool || "School not assigned"
                           : "Current database record"}
                   </span>
                 </div>
@@ -274,9 +287,17 @@ export function GenericPage({
   );
 }
 
-function AddStaffDialog({ onClose }: { onClose: () => void }) {
+function AddStaffDialog({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave?: (values: AddStaffFormValues) => Promise<void>;
+}) {
   const { schools } = useFeatureData();
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const { register, handleSubmit } = useForm<AddStaffFormValues>({
     resolver: zodResolver(addStaffSchema),
     defaultValues: {
@@ -286,6 +307,25 @@ function AddStaffDialog({ onClose }: { onClose: () => void }) {
       employer: "Goverment_Tsc",
     },
   });
+  const saveStaff = async (values: AddStaffFormValues) => {
+    if (!onSave) {
+      setSaveError("Staff saving is not configured.");
+      return;
+    }
+    setSaving(true);
+    setSaveError("");
+    try {
+      await onSave(values);
+      window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+      setSaved(true);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "The staff record could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <div className="overlay" onClick={onClose}>
       <div
@@ -318,7 +358,8 @@ function AddStaffDialog({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(() => setSaved(true))}>
+          <form onSubmit={handleSubmit(saveStaff)}>
+            {saveError && <p role="alert">{saveError}</p>}
             <div className="form-section">
               <h3>Staff details</h3>
               <div className="form-grid">
@@ -416,8 +457,12 @@ function AddStaffDialog({ onClose }: { onClose: () => void }) {
               >
                 Cancel
               </button>
-              <button className="modal-primary-button" type="submit">
-                Save staff
+              <button
+                className="modal-primary-button"
+                type="submit"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save staff"}
               </button>
             </div>
           </form>

@@ -5,9 +5,43 @@ import { useRouter, useSearchParams } from "next/navigation";
 import SchoolsPage from "../pages/schools-page";
 import { SchoolProfile } from "../pages/school-profile-page";
 import { AddSchoolDialog } from "../dialogs/school-dialogs";
-import type { AddSchoolFormValues } from "../types/forms";
+import type {
+  AddContactFormValues,
+  AddSchoolFormValues,
+  InfrastructureProjectFormValues,
+  SubjectCombinationFormValues,
+} from "../types/forms";
 import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
 import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
+
+type InfrastructureProjectActions = {
+  onCreateInfrastructureProject?: (
+    input: InfrastructureProjectFormValues,
+  ) => Promise<string | void>;
+  onUpdateInfrastructureProject?: (
+    projectId: string,
+    input: InfrastructureProjectFormValues,
+  ) => Promise<void>;
+  onDeleteInfrastructureProject?: (projectId: string) => Promise<void>;
+};
+type ContactActions = {
+  onCreateContact?: (values: AddContactFormValues) => Promise<void>;
+  onUpdateContact?: (
+    contactId: string,
+    values: Partial<AddContactFormValues>,
+  ) => Promise<void>;
+  onDeleteContact?: (contactId: string) => Promise<void>;
+};
+type SubjectCombinationActions = {
+  onCreateSubjectCombination?: (
+    input: SubjectCombinationFormValues,
+  ) => Promise<string | void>;
+  onUpdateSubjectCombination?: (
+    id: string,
+    input: SubjectCombinationFormValues,
+  ) => Promise<void>;
+  onDeleteSubjectCombination?: (id: string) => Promise<void>;
+};
 
 export function SchoolsRoutePage({
   onSaveSchool,
@@ -16,6 +50,15 @@ export function SchoolsRoutePage({
   resolveLogo,
   onSaveEnrollmentGrade,
   onSaveInfrastructureFacility,
+  onCreateInfrastructureProject,
+  onUpdateInfrastructureProject,
+  onDeleteInfrastructureProject,
+  onCreateContact,
+  onUpdateContact,
+  onDeleteContact,
+  onCreateSubjectCombination,
+  onUpdateSubjectCombination,
+  onDeleteSubjectCombination,
 }: {
   onSaveSchool?: (values: AddSchoolFormValues) => Promise<void>;
   onChooseFile?: () => Promise<string | null>;
@@ -25,7 +68,9 @@ export function SchoolsRoutePage({
   onSaveInfrastructureFacility?: (
     input: InfrastructureFacilitySaveInput,
   ) => Promise<void>;
-}) {
+} & InfrastructureProjectActions &
+  ContactActions &
+  SubjectCombinationActions) {
   const [showAddSchool, setShowAddSchool] = useState(false);
   const router = useRouter();
 
@@ -40,6 +85,15 @@ export function SchoolsRoutePage({
         resolveLogo={resolveLogo}
         onSaveEnrollmentGrade={onSaveEnrollmentGrade}
         onSaveInfrastructureFacility={onSaveInfrastructureFacility}
+        onCreateInfrastructureProject={onCreateInfrastructureProject}
+        onUpdateInfrastructureProject={onUpdateInfrastructureProject}
+        onDeleteInfrastructureProject={onDeleteInfrastructureProject}
+        onCreateContact={onCreateContact}
+        onUpdateContact={onUpdateContact}
+        onDeleteContact={onDeleteContact}
+        onCreateSubjectCombination={onCreateSubjectCombination}
+        onUpdateSubjectCombination={onUpdateSubjectCombination}
+        onDeleteSubjectCombination={onDeleteSubjectCombination}
       />
     </Suspense>
   );
@@ -54,6 +108,15 @@ function SchoolsRoutePageContent({
   resolveLogo,
   onSaveEnrollmentGrade,
   onSaveInfrastructureFacility,
+  onCreateInfrastructureProject,
+  onUpdateInfrastructureProject,
+  onDeleteInfrastructureProject,
+  onCreateContact,
+  onUpdateContact,
+  onDeleteContact,
+  onCreateSubjectCombination,
+  onUpdateSubjectCombination,
+  onDeleteSubjectCombination,
 }: {
   showAddSchool: boolean;
   setShowAddSchool: (show: boolean) => void;
@@ -65,7 +128,9 @@ function SchoolsRoutePageContent({
   onSaveInfrastructureFacility?: (
     input: InfrastructureFacilitySaveInput,
   ) => Promise<void>;
-}) {
+} & InfrastructureProjectActions &
+  ContactActions &
+  SubjectCombinationActions) {
   const router = useRouter();
   const schoolId = useSearchParams().get("school");
 
@@ -78,6 +143,15 @@ function SchoolsRoutePageContent({
         resolveLogo={resolveLogo}
         onSaveEnrollmentGrade={onSaveEnrollmentGrade}
         onSaveInfrastructureFacility={onSaveInfrastructureFacility}
+        onCreateInfrastructureProject={onCreateInfrastructureProject}
+        onUpdateInfrastructureProject={onUpdateInfrastructureProject}
+        onDeleteInfrastructureProject={onDeleteInfrastructureProject}
+        onCreateContact={onCreateContact}
+        onUpdateContact={onUpdateContact}
+        onDeleteContact={onDeleteContact}
+        onCreateSubjectCombination={onCreateSubjectCombination}
+        onUpdateSubjectCombination={onUpdateSubjectCombination}
+        onDeleteSubjectCombination={onDeleteSubjectCombination}
       />
     );
   }

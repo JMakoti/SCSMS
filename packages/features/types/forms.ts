@@ -9,6 +9,7 @@ import type { editWardRecordSchema } from "../schemas/edit-ward-record-schema";
 import type { infrastructureProjectSchema } from "../schemas/infrastructure-project-schema";
 import type { loginSchema } from "../schemas/login-schema";
 import type { profileSchema } from "../schemas/profile-schema";
+import type { subjectCombinationSchema } from "../schemas/subject-combination-schema";
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type AddContactFormValues = z.infer<typeof addContactSchema>;
@@ -22,3 +23,6 @@ export type InfrastructureProjectFormValues = z.infer<
 >;
 export type EditRecordFormValues = z.infer<typeof editRecordSchema>;
 export type ProfileFormValues = z.infer<typeof profileSchema>;
+export type SubjectCombinationFormValues = z.infer<
+  typeof subjectCombinationSchema
+>;

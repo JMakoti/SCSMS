@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/session";
+import { writeSchoolAudit } from "@/lib/school-audit-server";
 import { db } from "@scsms/db/postgres";
 import {
   academicYears,
@@ -66,6 +67,8 @@ export async function PATCH(request: Request) {
       );
     }
 
+    let auditBefore: unknown = null;
+    let auditAfter: unknown = null;
     await db.transaction(async (transaction) => {
       let [snapshot] = await transaction
         .select({ id: infrastructureSnapshots.id })
@@ -90,7 +93,7 @@ export async function PATCH(request: Request) {
       }
 
       const [existingRow] = await transaction
-        .select({ id: infrastructureFacilityRows.id })
+        .select()
         .from(infrastructureFacilityRows)
         .where(
           and(
@@ -120,13 +123,23 @@ export async function PATCH(request: Request) {
           .update(infrastructureFacilityRows)
           .set(rowValues)
           .where(eq(infrastructureFacilityRows.id, existingRow.id));
+        auditBefore = existingRow;
+        auditAfter = { ...existingRow, ...rowValues };
       } else {
-        await transaction.insert(infrastructureFacilityRows).values({
+        const inserted = {
           snapshotId: snapshot.id,
           ...rowValues,
-        });
+        };
+        await transaction.insert(infrastructureFacilityRows).values(inserted);
+        auditAfter = inserted;
       }
     });
+    await writeSchoolAudit(
+      "saved infrastructure facility",
+      values.schoolId,
+      auditBefore,
+      auditAfter,
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

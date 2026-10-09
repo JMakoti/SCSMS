@@ -86,6 +86,7 @@ export function StaffContent({
         </div>
         <div className="school-staff-table">
           <div className="school-staff-table-head">
+            <span>Staff ID</span>
             <span>Staff member</span>
             <span>Role</span>
             <span>Category</span>
@@ -94,6 +95,7 @@ export function StaffContent({
           </div>
           {paginatedRecords.map((record) => (
             <div className="school-staff-table-row" key={record.name}>
+              <span>{record.staffNumber || "Not assigned"}</span>
               <div className="school-staff-member">
                 <span className="school-staff-avatar">
                   {getInitials(record.name)}
@@ -188,8 +190,16 @@ export function StaffContent({
           <ExportMenu
             title="Staff records"
             filename="staff-records"
-            headers={["Staff member", "Role", "Category", "Contact", "Status"]}
+            headers={[
+              "Staff ID",
+              "Staff member",
+              "Role",
+              "Category",
+              "Contact",
+              "Status",
+            ]}
             rows={filteredRecords.map((record) => [
+              record.staffNumber || "Not assigned",
               record.name,
               record.role,
               record.type,
@@ -214,6 +224,7 @@ export function StaffContent({
         </label>
         <div className="staff-table">
           <div className="staff-table-head">
+            <span>Staff ID</span>
             <span>Staff member</span>
             <span>Role</span>
             <span>Category</span>
@@ -222,6 +233,7 @@ export function StaffContent({
           </div>
           {filteredRecords.map((record) => (
             <div className="staff-table-row" key={record.name}>
+              <span>{record.staffNumber || "Not assigned"}</span>
               <div className="staff-person">
                 <span>{getInitials(record.name)}</span>
                 <strong>{record.name}</strong>

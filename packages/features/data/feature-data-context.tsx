@@ -76,6 +76,7 @@ export type FeatureWardOption = Pick<
 
 export type FeatureStaffRecord = StaffRecord & {
   id: string;
+  staffNumber: string;
   schoolId: string;
   assignedSchool: string;
   employmentType: string;
@@ -164,6 +165,10 @@ export type FeatureSubjectCombination = {
   isActive: boolean;
 };
 
+export type FeatureSchoolHistoryActivity = SchoolHistoryActivity & {
+  schoolId: string;
+};
+
 export type FeatureData = {
   schools: RabaiSchool[];
   schoolYears: FeatureSchoolYear[];
@@ -180,7 +185,16 @@ export type FeatureData = {
   }>;
   academicYears: AcademicYear[];
   staff: FeatureStaffRecord[];
-  contacts: Array<SchoolContactGroup & { schoolId: string }>;
+  contacts: Array<
+    SchoolContactGroup & {
+      id: string;
+      schoolId: string;
+      role: string;
+      phone: string;
+      phone2: string;
+      isActive: boolean;
+    }
+  >;
   infrastructureFacilities: Array<
     InfrastructureFacilityRow & {
       schoolId: string;
@@ -195,7 +209,7 @@ export type FeatureData = {
   pendingSyncCount: number;
   syncRecords: FeatureSyncRecord[];
   subjectCombinations: FeatureSubjectCombination[];
-  schoolHistoryActivities: SchoolHistoryActivity[];
+  schoolHistoryActivities: FeatureSchoolHistoryActivity[];
   profile: ProfileDefaults;
   wards: WardSummary[];
   subCounties: FeatureSubCounty[];

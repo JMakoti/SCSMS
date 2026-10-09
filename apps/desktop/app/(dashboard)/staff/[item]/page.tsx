@@ -1,5 +1,6 @@
 import RecordDetailRoutePage from "@scsms/features/pages/record-detail-route-page";
 import { generateItemStaticParams } from "../../../static-params";
+import StaffDetailDesktop from "./staff-detail-desktop";
 
 export function generateStaticParams() {
   return generateItemStaticParams("Staff");
@@ -12,7 +13,5 @@ export default async function StaffDetailPage({
 }) {
   const { item } = await params;
 
-  return (
-    <RecordDetailRoutePage active="Staff" item={decodeURIComponent(item)} />
-  );
+  return <StaffDetailDesktop item={decodeURIComponent(item)} />;
 }

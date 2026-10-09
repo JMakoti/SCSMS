@@ -29,6 +29,11 @@ import { useFeatureData } from "../data/feature-data-context";
 import { ExportMenu } from "../ui/export-menu";
 import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
 import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
+import type {
+  AddContactFormValues,
+  InfrastructureProjectFormValues,
+  SubjectCombinationFormValues,
+} from "../types/forms";
 import {
   formatSchoolBoarding,
   formatSchoolClassification,
@@ -49,7 +54,37 @@ const displayValue = (value: string | number | null | undefined) =>
     ? String(value)
     : "Not provided";
 
+type InfrastructureProjectActions = {
+  onCreateInfrastructureProject?: (
+    input: InfrastructureProjectFormValues,
+  ) => Promise<string | void>;
+  onUpdateInfrastructureProject?: (
+    projectId: string,
+    input: InfrastructureProjectFormValues,
+  ) => Promise<void>;
+  onDeleteInfrastructureProject?: (projectId: string) => Promise<void>;
+};
+type ContactActions = {
+  onCreateContact?: (values: AddContactFormValues) => Promise<void>;
+  onUpdateContact?: (
+    contactId: string,
+    values: Partial<AddContactFormValues>,
+  ) => Promise<void>;
+  onDeleteContact?: (contactId: string) => Promise<void>;
+};
+type SubjectCombinationActions = {
+  onCreateSubjectCombination?: (
+    input: SubjectCombinationFormValues,
+  ) => Promise<string | void>;
+  onUpdateSubjectCombination?: (
+    id: string,
+    input: SubjectCombinationFormValues,
+  ) => Promise<void>;
+  onDeleteSubjectCombination?: (id: string) => Promise<void>;
+};
+
 type SubjectCombinationRecord = {
+  id: string;
   code: string;
   combination: string;
   pathway: string;
@@ -66,10 +101,18 @@ const trackOptions = [
   "More",
 ];
 
-function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
+function SubjectCombinationsContent({
+  schoolName,
+  onCreateSubjectCombination,
+  onUpdateSubjectCombination,
+  onDeleteSubjectCombination,
+}: {
+  schoolName: string;
+} & SubjectCombinationActions) {
   const pageSize = 10;
   const { schools, subjectCombinations } = useFeatureData();
   const { currentAcademicYear } = useAcademicYear();
+  const [saveError, setSaveError] = useState("");
   const school = schools.find((record) => record.displayName === schoolName);
   const databaseCombinations = subjectCombinations
     .filter(
@@ -78,7 +121,8 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
         record.academicYearId === currentAcademicYear.id &&
         record.isActive,
     )
-    .map(({ code, combination, pathway, track }) => ({
+    .map(({ id, code, combination, pathway, track }) => ({
+      id,
       code,
       combination,
       pathway,
@@ -93,7 +137,7 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [draft, setDraft] = useState<SubjectCombinationRecord | null>(null);
   const [newCombination, setNewCombination] =
-    useState<SubjectCombinationRecord>({
+    useState<Omit<SubjectCombinationRecord, "id">>({
       code: "",
       combination: "",
       pathway: pathwayOptions[0],
@@ -120,51 +164,123 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
     setEditingCode(null);
     setDraft(null);
   };
-  const saveEdit = () => {
-    if (!editingCode || !draft) return;
-    setCombinations((current) =>
-      current.map((row) => (row.code === editingCode ? draft : row)),
-    );
-    cancelEdit();
+  const refreshFeatureData = () => {
+    window.dispatchEvent(new Event("scsms:feature-data-refresh"));
   };
-  const deleteCombination = (code: string) => {
-    setCombinations((current) => {
-      const nextCombinations = current.filter((row) => row.code !== code);
-      const nextTotalPages = Math.max(
-        1,
-        Math.ceil(nextCombinations.length / pageSize),
+  const saveEdit = async () => {
+    if (!editingCode || !draft || !school) return;
+    if (!onUpdateSubjectCombination) {
+      setSaveError("Subject combination updating is not configured.");
+      return;
+    }
+    setSaveError("");
+    try {
+      await onUpdateSubjectCombination(draft.id, {
+        schoolId: school.id,
+        academicYearId: currentAcademicYear.id,
+        code: draft.code,
+        combination: draft.combination,
+        pathway: draft.pathway,
+        track: draft.track,
+      });
+      setCombinations((current) =>
+        current.map((row) => (row.id === draft.id ? draft : row)),
       );
-
-      setPage((currentPageValue) => Math.min(currentPageValue, nextTotalPages));
-
-      return nextCombinations;
-    });
-
-    if (editingCode === code) {
+      refreshFeatureData();
       cancelEdit();
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "The subject combination could not be saved.",
+      );
     }
   };
-  const addCombination = () => {
-    if (!newCombination.code.trim() || !newCombination.combination.trim()) {
+  const deleteCombination = async (row: SubjectCombinationRecord) => {
+    if (!onDeleteSubjectCombination) {
+      setSaveError("Subject combination deletion is not configured.");
+      return;
+    }
+    setSaveError("");
+    try {
+      await onDeleteSubjectCombination(row.id);
+      setCombinations((current) => {
+        const nextCombinations = current.filter((entry) => entry.id !== row.id);
+        const nextTotalPages = Math.max(
+          1,
+          Math.ceil(nextCombinations.length / pageSize),
+        );
+
+        setPage((currentPageValue) =>
+          Math.min(currentPageValue, nextTotalPages),
+        );
+
+        return nextCombinations;
+      });
+      refreshFeatureData();
+
+      if (editingCode === row.code) {
+        cancelEdit();
+      }
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "The subject combination could not be deleted.",
+      );
+    }
+  };
+  const addCombination = async () => {
+    if (
+      !school ||
+      !newCombination.code.trim() ||
+      !newCombination.combination.trim()
+    ) {
+      return;
+    }
+    if (!onCreateSubjectCombination) {
+      setSaveError("Subject combination saving is not configured.");
       return;
     }
 
-    const nextCombination = {
+    const nextCombinationInput = {
+      schoolId: school.id,
+      academicYearId: currentAcademicYear.id,
       ...newCombination,
       code: newCombination.code.trim(),
       combination: newCombination.combination.trim(),
+      pathway: newCombination.pathway.trim(),
+      track: newCombination.track.trim(),
     };
-    const nextCombinations = [...combinations, nextCombination];
+    setSaveError("");
+    try {
+      const createdId = await onCreateSubjectCombination(nextCombinationInput);
+      const nextCombination = {
+        id: createdId ?? `${school.id}-${nextCombinationInput.code}`,
+        code: nextCombinationInput.code,
+        combination: nextCombinationInput.combination,
+        pathway: nextCombinationInput.pathway,
+        track: nextCombinationInput.track,
+      };
+      const nextCombinations = [...combinations, nextCombination];
 
-    setCombinations(nextCombinations);
-    setNewCombination({
-      code: "",
-      combination: "",
-      pathway: pathwayOptions[0],
-      track: trackOptions[0],
-    });
-    setShowAddModal(false);
-    setPage(Math.ceil(nextCombinations.length / pageSize));
+      setCombinations(nextCombinations);
+      setNewCombination({
+        code: "",
+        combination: "",
+        pathway: pathwayOptions[0],
+        track: trackOptions[0],
+      });
+      setShowAddModal(false);
+      setPage(Math.ceil(nextCombinations.length / pageSize));
+      refreshFeatureData();
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "The subject combination could not be saved.",
+      );
+    }
   };
 
   return (
@@ -287,6 +403,7 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
           Add combination
         </Button>
       </div>
+      {saveError && <p role="alert">{saveError}</p>}
       <div className="table-scroll">
         <table>
           <thead>
@@ -304,7 +421,7 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
               const activeDraft = isEditing ? draft : null;
 
               return (
-                <tr key={row.code}>
+                <tr key={row.id}>
                   <td>
                     {activeDraft ? (
                       <input
@@ -397,7 +514,7 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
                             type="button"
                             aria-label={`Delete ${row.code}`}
                             className="subject-delete-button"
-                            onClick={() => deleteCombination(row.code)}
+                            onClick={() => deleteCombination(row)}
                           >
                             <Trash2 />
                           </button>
@@ -462,9 +579,12 @@ function SubjectCombinationsContent({ schoolName }: { schoolName: string }) {
 }
 
 export function SchoolHistoryContent({ schoolName }: { schoolName: string }) {
-  const { schoolHistoryActivities } = useFeatureData();
+  const { schools, schoolHistoryActivities } = useFeatureData();
+  const school = schools.find((record) => record.displayName === schoolName);
   const activityIcons = { Pencil, Building2, UserCog, Users };
-  const activities = schoolHistoryActivities;
+  const activities = schoolHistoryActivities.filter(
+    (activity) => activity.schoolId === school?.id,
+  );
   return (
     <section className="panel school-history-panel">
       <div className="panel-header">
@@ -501,6 +621,15 @@ export function SchoolProfile({
   resolveLogo,
   onSaveEnrollmentGrade,
   onSaveInfrastructureFacility,
+  onCreateInfrastructureProject,
+  onUpdateInfrastructureProject,
+  onDeleteInfrastructureProject,
+  onCreateContact,
+  onUpdateContact,
+  onDeleteContact,
+  onCreateSubjectCombination,
+  onUpdateSubjectCombination,
+  onDeleteSubjectCombination,
 }: {
   schoolId: string;
   onBack: () => void;
@@ -510,7 +639,9 @@ export function SchoolProfile({
   onSaveInfrastructureFacility?: (
     input: InfrastructureFacilitySaveInput,
   ) => Promise<void>;
-}) {
+} & InfrastructureProjectActions &
+  ContactActions &
+  SubjectCombinationActions) {
   const [tab, setTab] = useState("Overview");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [termId, setTermId] = useState("");
@@ -759,7 +890,12 @@ export function SchoolProfile({
         ))}
       </div>
       {tab === "Contacts" ? (
-        <SchoolContactsContent school={school.displayName} />
+        <SchoolContactsContent
+          school={school.displayName}
+          onCreateContact={onCreateContact}
+          onUpdateContact={onUpdateContact}
+          onDeleteContact={onDeleteContact}
+        />
       ) : tab === "History" ? (
         <SchoolHistoryContent schoolName={school.displayName} />
       ) : tab === "Staff" ? (
@@ -769,9 +905,17 @@ export function SchoolProfile({
           detail
           school={school.displayName}
           onSaveFacility={onSaveInfrastructureFacility}
+          onCreateProject={onCreateInfrastructureProject}
+          onUpdateProject={onUpdateInfrastructureProject}
+          onDeleteProject={onDeleteInfrastructureProject}
         />
       ) : tab === "Subject" && isSeniorSchool ? (
-        <SubjectCombinationsContent schoolName={school.displayName} />
+        <SubjectCombinationsContent
+          schoolName={school.displayName}
+          onCreateSubjectCombination={onCreateSubjectCombination}
+          onUpdateSubjectCombination={onUpdateSubjectCombination}
+          onDeleteSubjectCombination={onDeleteSubjectCombination}
+        />
       ) : tab === "Enrollment" ? (
         <div className="enrollment-tab-content">
           <div className="term-cards">

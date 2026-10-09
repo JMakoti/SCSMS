@@ -5631,8 +5631,8 @@ tbody tr:hover {
 .school-staff-table-row {
   display: grid;
   grid-template-columns:
-    minmax(190px, 1.6fr) minmax(150px, 1.2fr) minmax(110px, 0.8fr)
-    minmax(150px, 1fr) minmax(92px, auto);
+    minmax(120px, 0.8fr) minmax(190px, 1.6fr) minmax(150px, 1.2fr)
+    minmax(110px, 0.8fr) minmax(150px, 1fr) minmax(92px, auto);
   align-items: center;
   gap: 16px;
   min-width: 760px;
@@ -6575,7 +6575,7 @@ tbody tr:hover {
 .staff-table-head,
 .staff-table-row {
   display: grid;
-  grid-template-columns: 1.7fr 1.35fr 1.1fr 1.35fr 0.8fr;
+  grid-template-columns: 1fr 1.7fr 1.35fr 1.1fr 1.35fr 0.8fr;
   align-items: center;
   gap: 10px;
   padding: 7px 8px;
@@ -6599,7 +6599,7 @@ tbody tr:hover {
   color: #334155;
   font-weight: 650;
 }
-.staff-table-row > span:nth-child(3) {
+.staff-table-row > span:nth-child(4) {
   padding: 4px 7px;
   border-radius: 999px;
   background: #eef4ff;
@@ -6615,7 +6615,7 @@ tbody tr:hover {
 .dark-theme .staff-table-row > span:nth-child(2) {
   color: #dbeafe;
 }
-.dark-theme .staff-table-row > span:nth-child(3) {
+.dark-theme .staff-table-row > span:nth-child(4) {
   background: #1d3557;
   color: #bfdbfe;
 }
@@ -6656,7 +6656,7 @@ tbody tr:hover {
   color: #1e3a5f;
   font-size: 12px;
 }
-.staff-table-row > span:nth-child(3) {
+.staff-table-row > span:nth-child(4) {
   font-size: 10px;
   font-weight: 700;
   color: #64748b;
@@ -7397,7 +7397,7 @@ tbody tr:hover {
 .detail-enrollment-head,
 .detail-enrollment-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1.2fr;
+  grid-template-columns: 2fr 1fr 1fr 1.2fr 42px;
   align-items: center;
   gap: 16px;
   padding: 12px 14px;
@@ -7474,6 +7474,16 @@ tbody tr:hover {
   background: #fef2f2;
   color: #dc2626;
 }
+.grade-edit-button {
+  border-color: #d7e4f5 !important;
+  background: #fff;
+  color: #4b6b91;
+}
+.grade-edit-button:hover {
+  border-color: #bfdbfe !important;
+  background: #eff6ff;
+  color: #2563eb;
+}
 .detail-enrollment-row.is-editing {
   background: #eff6ff;
 }
@@ -7488,6 +7498,16 @@ tbody tr:hover {
   background: #111b2b;
   border-color: #5278ad;
   color: #e2e8f0;
+}
+.dark-theme .grade-edit-button {
+  border-color: #2b3a50 !important;
+  background: #172033;
+  color: #cbd5e1;
+}
+.dark-theme .grade-edit-button:hover {
+  border-color: #315f95 !important;
+  background: #1d3557;
+  color: #bfdbfe;
 }
 .dark-theme .detail-enrollment-row.is-editing {
   background: #172a46;

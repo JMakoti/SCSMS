@@ -18,6 +18,7 @@ import {
   resolveSchoolId,
   resolveTermId,
 } from "./helpers";
+import { writeSchoolAudit } from "./audit";
 import type { EnrollmentGradeSaveInput } from "@scsms/features/schemas/enrollment-grade-schema";
 
 export type EnrollmentSnapshot = typeof enrollmentSnapshots.$inferSelect;
@@ -134,7 +135,7 @@ export async function saveEnrollmentGrade(input: EnrollmentGradeSaveInput) {
     total: input.male + input.female,
   };
   const [existingRow] = await db
-    .select({ id: enrollmentGradeRows.id })
+    .select()
     .from(enrollmentGradeRows)
     .where(
       and(
@@ -149,15 +150,21 @@ export async function saveEnrollmentGrade(input: EnrollmentGradeSaveInput) {
       .update(enrollmentGradeRows)
       .set(rowValues)
       .where(eq(enrollmentGradeRows.id, existingRow.id));
+    await writeSchoolAudit("saved enrollment grade", input.schoolId, existingRow, {
+      ...existingRow,
+      ...rowValues,
+    });
     return;
   }
 
-  await db.insert(enrollmentGradeRows).values({
+  const inserted = {
     id: createLocalId(),
     snapshotId: snapshot.id,
     grade: input.grade,
     ...rowValues,
-  });
+  };
+  await db.insert(enrollmentGradeRows).values(inserted);
+  await writeSchoolAudit("saved enrollment grade", input.schoolId, null, inserted);
 }
 
 export async function initializeSchoolEnrollment(

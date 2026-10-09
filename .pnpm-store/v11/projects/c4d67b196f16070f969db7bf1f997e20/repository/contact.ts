@@ -5,6 +5,7 @@ import { contacts, schools, wards } from "@scsms/db";
 import type { AddContactFormValues } from "@scsms/features/types/forms";
 
 import { optional, required, resolveSchoolId, resolveWardId } from "./helpers";
+import { writeSchoolAudit } from "./audit";
 
 export type Contact = typeof contacts.$inferSelect;
 export type ContactDetails = Contact & {
@@ -27,6 +28,7 @@ const contactRoles: Record<string, NonNullable<Contact["titleType"]>> = {
   deputy: "deputy",
   "deputy head teacher": "deputy",
   bursar: "bursar",
+  "school bursar": "bursar",
   "board chair": "board_chair",
   "board chairperson": "board_chair",
   "senior teacher": "senior_teacher",
@@ -82,18 +84,20 @@ export async function getContactDetails(id: string) {
 }
 
 export async function createContact(input: AddContactFormValues) {
-  await db.insert(contacts).values({
+  const values = {
     schoolId: await resolveSchoolId(input.school),
     wardId: null,
     titleType: mapContactRole(input.role),
     name: required(input.fullName, "Full name"),
     phone: required(input.phone, "Phone number"),
-    phone2: null,
+    phone2: optional(input.phone2),
     email: optional(input.email),
     postalAddress: null,
     isPrimary: false,
     isActive: mapActiveStatus(input.status),
-  });
+  };
+  await db.insert(contacts).values(values);
+  await writeSchoolAudit("created contact", values.schoolId, null, values);
 }
 
 export async function updateContact(id: string, input: UpdateContactInput) {
@@ -102,26 +106,31 @@ export async function updateContact(id: string, input: UpdateContactInput) {
     throw new Error("This contact no longer exists. Refresh the list and try again.");
   }
 
+  const updates = {
+    schoolId: input.school ? await resolveSchoolId(input.school) : existing.schoolId,
+    wardId: input.ward ? await resolveWardId(input.ward) : existing.wardId,
+    titleType: input.role ? mapContactRole(input.role) : existing.titleType,
+    name: input.fullName ? required(input.fullName, "Full name") : existing.name,
+    phone: input.phone ? required(input.phone, "Phone number") : existing.phone,
+    phone2: input.phone2 !== undefined ? optional(input.phone2) : existing.phone2,
+    email: input.email !== undefined ? optional(input.email) : existing.email,
+    postalAddress:
+      input.postalAddress !== undefined
+        ? optional(input.postalAddress)
+        : existing.postalAddress,
+    isPrimary: input.isPrimary ?? existing.isPrimary,
+    isActive:
+      input.isActive ?? (input.status ? mapActiveStatus(input.status) : existing.isActive),
+    updatedAt: new Date().toISOString(),
+  };
   await db
     .update(contacts)
-    .set({
-      schoolId: input.school ? await resolveSchoolId(input.school) : existing.schoolId,
-      wardId: input.ward ? await resolveWardId(input.ward) : existing.wardId,
-      titleType: input.role ? mapContactRole(input.role) : existing.titleType,
-      name: input.fullName ? required(input.fullName, "Full name") : existing.name,
-      phone: input.phone ? required(input.phone, "Phone number") : existing.phone,
-      phone2: input.phone2 !== undefined ? optional(input.phone2) : existing.phone2,
-      email: input.email !== undefined ? optional(input.email) : existing.email,
-      postalAddress:
-        input.postalAddress !== undefined
-          ? optional(input.postalAddress)
-          : existing.postalAddress,
-      isPrimary: input.isPrimary ?? existing.isPrimary,
-      isActive:
-        input.isActive ?? (input.status ? mapActiveStatus(input.status) : existing.isActive),
-      updatedAt: new Date().toISOString(),
-    })
+    .set(updates)
     .where(eq(contacts.id, id));
+  await writeSchoolAudit("updated contact", updates.schoolId, existing, {
+    ...existing,
+    ...updates,
+  });
 }
 
 export async function deleteContact(id: string) {
@@ -131,4 +140,5 @@ export async function deleteContact(id: string) {
   }
 
   await db.delete(contacts).where(eq(contacts.id, id));
+  await writeSchoolAudit("deleted contact", existing.schoolId, existing, null);
 }
