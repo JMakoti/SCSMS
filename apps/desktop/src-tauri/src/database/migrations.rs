@@ -5,6 +5,7 @@ const SUBJECT_COMBINATIONS_SCHEMA_VERSION: i64 = 2;
 const WARD_GEOGRAPHY_SCHEMA_VERSION: i64 = 3;
 const WARD_SUBCOUNTY_SCHEMA_VERSION: i64 = 4;
 const INFRASTRUCTURE_PROJECT_TERM_SCHEMA_VERSION: i64 = 5;
+const SCHOOL_CLUSTER_LEVEL_SCHEMA_VERSION: i64 = 6;
 const INITIAL_SCHEMA_SQL: &str =
     include_str!("../../../../../database/drizzle/sqlite/0000_empty_scourge.sql");
 const SUBJECT_COMBINATIONS_SCHEMA_SQL: &str =
@@ -15,6 +16,8 @@ const WARD_SUBCOUNTY_SCHEMA_SQL: &str =
     include_str!("../../../../../database/drizzle/sqlite/0003_ward_subcounty_relation.sql");
 const INFRASTRUCTURE_PROJECT_TERM_SCHEMA_SQL: &str =
     include_str!("../../../../../database/drizzle/sqlite/0004_hesitant_giant_man.sql");
+const SCHOOL_CLUSTER_LEVEL_SCHEMA_SQL: &str =
+    include_str!("../../../../../database/drizzle/sqlite/0005_school_cluster_level.sql");
 
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {
     pool.execute(
@@ -82,6 +85,16 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {
             pool,
             INFRASTRUCTURE_PROJECT_TERM_SCHEMA_VERSION,
             "infrastructure project term",
+        )
+        .await?;
+    }
+
+    if !migration_exists(pool, SCHOOL_CLUSTER_LEVEL_SCHEMA_VERSION).await? {
+        apply_migration(pool, SCHOOL_CLUSTER_LEVEL_SCHEMA_SQL).await?;
+        record_migration(
+            pool,
+            SCHOOL_CLUSTER_LEVEL_SCHEMA_VERSION,
+            "school cluster level",
         )
         .await?;
     }

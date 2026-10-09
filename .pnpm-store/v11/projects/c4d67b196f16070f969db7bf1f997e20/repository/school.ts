@@ -151,6 +151,7 @@ function mapSchoolFields(
         ? "junior"
         : "senior",
     ownershipType: ownershipTypes[fields.ownershipType],
+    clusterLevel: fields.clusterLevel,
     status: fields.isActive === "Active" ? "active" : "inactive",
     registrationstatus: fields.registrationStatus
       ? registrationStatuses[fields.registrationStatus]

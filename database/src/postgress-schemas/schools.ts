@@ -30,6 +30,9 @@ export const schools = pgTable(
     ownershipType: text("ownership_type", {
       enum: ["goverment", "private", "community", "NGO_organization"],
     }).notNull(),
+    clusterLevel: text("cluster_level", {
+      enum: ["1", "2", "3", "4"],
+    }),
     status: text("status", {
       enum: ["active", "inactive", "closed", "pending_update"],
     })

@@ -28,6 +28,7 @@ export const editSchoolRecordSchema = z.object({
       "Community",
       "NGO/Organization",
     ]),
+    clusterLevel: z.enum(["1", "2", "3", "4"]),
     genderType: z.enum(["MIXED", "BOYS", "GIRLS", "UNKNOWN"]),
     boardingType: z.enum(["DAY", "BOARDING", "DAY_AND_BOARDING", "UNKNOWN"]),
     titleDeed: z.enum(["YES", "NO"]),

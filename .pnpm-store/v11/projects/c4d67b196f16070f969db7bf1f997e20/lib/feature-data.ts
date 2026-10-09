@@ -36,6 +36,18 @@ import {
 
 const display = (value: string | null | undefined) =>
   value ? value.replaceAll("_", " ") : "Not recorded";
+const formatEastAfricaTime = (value: string | null | undefined) => {
+  if (!value) return "Not available";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return `${new Intl.DateTimeFormat("en-KE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Africa/Nairobi",
+  }).format(date)} EAT`;
+};
 const readAuditSchoolId = (record: {
   entityType: string;
   entityId: string | null;
@@ -215,6 +227,34 @@ export async function loadDesktopFeatureData(
     subCountyRecords.map((record) => [record.id, record]),
   );
   const wardsById = new Map(wardRecords.map((ward) => [ward.id, ward]));
+  const readAuditEntityName = (record: {
+    entityType: string;
+    entityId: string | null;
+    beforeJson: string | null;
+    afterJson: string | null;
+  }) => {
+    const schoolId = readAuditSchoolId(record) || record.entityId || "";
+    const schoolName = schoolsById.get(schoolId)?.displayName;
+    if (schoolName) return schoolName;
+
+    for (const json of [record.afterJson, record.beforeJson]) {
+      if (!json) continue;
+      try {
+        const parsed: unknown = JSON.parse(json);
+        if (!parsed || typeof parsed !== "object") continue;
+        const data = parsed as Record<string, unknown>;
+        for (const field of ["displayName", "officialName", "name", "projectName"]) {
+          if (typeof data[field] === "string" && data[field].trim()) {
+            return data[field];
+          }
+        }
+      } catch {
+        // Ignore legacy audit payloads that were not stored as JSON.
+      }
+    }
+
+    return display(record.entityType);
+  };
   const yearsById = new Map(
     academicYearRecords.map((year) => [year.id, year]),
   );
@@ -283,6 +323,7 @@ export async function loadDesktopFeatureData(
       institutionType: mapInstitutionType(school.level),
       sourceInstitutionType: school.institutionType,
       ownershipType: mapOwnership(school.ownershipType),
+      clusterLevel: school.clusterLevel,
       genderType: mapGender(school.genderType),
       boardingType: mapBoarding(school.boardingType),
       county: parentSubCounty?.county ?? null,
@@ -448,11 +489,12 @@ export async function loadDesktopFeatureData(
     };
   });
 
-  const dashboardRecentActivities = auditRecords.slice(0, 8).map((record) => ({
+  const dashboardRecentActivities = auditRecords.slice(0, 5).map((record) => ({
+    id: record.id,
     icon: record.action.toLowerCase().includes("create") ? "Plus" as const : "Pencil" as const,
     title: display(record.action),
-    entity: [record.entityType, record.entityId].filter(Boolean).join(" / "),
-    time: record.createdAt,
+    entity: readAuditEntityName(record),
+    time: formatEastAfricaTime(record.createdAt),
     tone: "blue",
   }));
   const schoolHistoryActivities = auditRecords
@@ -460,7 +502,7 @@ export async function loadDesktopFeatureData(
       schoolId: readAuditSchoolId(record),
       title: display(record.action),
       detail: display(record.entityType),
-      time: record.createdAt,
+      time: formatEastAfricaTime(record.createdAt),
       icon: auditIcon(record.entityType),
     }))
     .filter((activity) => activity.schoolId);
@@ -589,7 +631,10 @@ export async function loadDesktopFeatureData(
       "School Contacts": contacts.map((contact) => contact.person.name),
       Reports: templates.map((template) => template.title),
       "Data Quality": schools.map((school) => school.displayName),
-      "Audit Logs": auditRecords.map((record) => record.id),
+      "Audit Logs": auditRecords.map(
+        (record) =>
+          `${display(record.action)} - ${readAuditEntityName(record)} - ${formatEastAfricaTime(record.createdAt)}`,
+      ),
       "School Performance": [...new Set(performance.map((record) => record.school))],
       "Users & Roles": [],
       Settings: [],

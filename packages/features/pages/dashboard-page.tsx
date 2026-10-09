@@ -19,6 +19,57 @@ import PageHeader from "../ui/page-header";
 import { useAcademicYear } from "../academic-years/academic-year-context";
 import { AcademicYearSelector } from "../academic-years/academic-year-selector";
 import { useFeatureData } from "../data/feature-data-context";
+
+const enrollmentGradeOrder = [
+  "PP1",
+  "PP2",
+  "PP3",
+  "Grade 1",
+  "Grade 2",
+  "Grade 3",
+  "Grade 4",
+  "Grade 5",
+  "Grade 6",
+  "Grade 7",
+  "Grade 8",
+  "Grade 9",
+  "Grade 10",
+  "Grade 11",
+  "Grade 12",
+];
+
+function formatAxisValue(value: number) {
+  if (value >= 1000) {
+    const thousands = value / 1000;
+    return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}k`;
+  }
+
+  return String(value);
+}
+
+function buildLinePoints(values: number[], maxValue: number) {
+  if (values.length === 0) return [];
+
+  const width = 600;
+  const height = 160;
+  const denominator = Math.max(maxValue, 1);
+
+  return values.map((value, index) => {
+      const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
+      const y = height - (value / denominator) * (height - 12);
+      return {
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
+      };
+    });
+}
+
+function buildLinePath(points: Array<{ x: number; y: number }>) {
+  return points
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`)
+    .join(" ");
+}
+
 export function StatCard({
   icon: Icon,
   label,
@@ -134,6 +185,7 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
   const {
     schools,
     schoolYears,
+    enrollmentRows,
     dashboardGenderDistribution,
     dashboardRecentActivities,
     pendingSyncCount,
@@ -153,8 +205,17 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
   const primarySchools = schools.filter(
     (school) => school.institutionType === "PRIMARY",
   ).length;
+  const juniorSchools = schools.filter(
+    (school) => school.institutionType === "JUNIOR_SECONDARY",
+  ).length;
   const seniorSchools = schools.filter(
     (school) => school.institutionType === "SENIOR_SECONDARY",
+  ).length;
+  const publicSchools = schools.filter(
+    (school) => school.ownershipType === "PUBLIC",
+  ).length;
+  const privateSchools = schools.filter(
+    (school) => school.ownershipType === "PRIVATE",
   ).length;
   const completeSchoolCount = schools.filter(
     (school) =>
@@ -175,6 +236,47 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
       (totalGenderLearners || 1)) *
       100,
   );
+  const enrollmentByGrade = enrollmentRows
+    .filter((row) => row.academicYearId === currentAcademicYear.id)
+    .reduce<Record<string, { male: number; female: number }>>((acc, row) => {
+      const current = acc[row.grade] ?? { male: 0, female: 0 };
+      current.male += row.male;
+      current.female += row.female;
+      acc[row.grade] = current;
+      return acc;
+    }, {});
+  const chartGrades = enrollmentGradeOrder.filter(
+    (grade) => enrollmentByGrade[grade],
+  );
+  const enrollmentChartRows = chartGrades.map((grade) => ({
+    grade,
+    male: enrollmentByGrade[grade]?.male ?? 0,
+    female: enrollmentByGrade[grade]?.female ?? 0,
+  }));
+  const maxEnrollmentValue = Math.max(
+    1,
+    ...enrollmentChartRows.flatMap((row) => [row.male, row.female]),
+  );
+  const axisTop = Math.ceil(maxEnrollmentValue / 4) * 4;
+  const axisValues = Array.from({ length: 5 }, (_, index) =>
+    Math.round(axisTop - (axisTop / 4) * index),
+  );
+  const maleLinePoints = buildLinePoints(
+    enrollmentChartRows.map((row) => row.male),
+    axisTop,
+  );
+  const femaleLinePoints = buildLinePoints(
+    enrollmentChartRows.map((row) => row.female),
+    axisTop,
+  );
+  const maleLinePath = buildLinePath(maleLinePoints);
+  const femaleLinePath = buildLinePath(femaleLinePoints);
+  const firstMalePoint = maleLinePoints[0];
+  const lastMalePoint = maleLinePoints[maleLinePoints.length - 1];
+  const maleFillPath =
+    firstMalePoint && lastMalePoint
+      ? `${maleLinePath} L${lastMalePoint.x} 160 L${firstMalePoint.x} 160Z`
+      : "";
 
   return (
     <div className="content">
@@ -209,6 +311,18 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
           detail="Registered school records"
         />
         <StatCard
+          icon={School}
+          label="Total Public Schools"
+          value={String(publicSchools)}
+          detail="Public ownership records"
+        />
+        <StatCard
+          icon={School}
+          label="Total Private Schools"
+          value={String(privateSchools)}
+          detail="Private ownership records"
+        />
+        <StatCard
           icon={Users}
           label="Total Students"
           value={totalStudents.toLocaleString()}
@@ -231,9 +345,16 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
         />
         <StatCard
           icon={ClipboardCheck}
+          label="Junior Secondary"
+          value={String(juniorSchools)}
+          detail="Verified"
+          tone="amber"
+        />
+        <StatCard
+          icon={ClipboardCheck}
           label="Senior Secondary"
           value={String(seniorSchools)}
-          detail="Verified / partially verified"
+          detail="Verified "
           tone="amber"
         />
         <StatCard
@@ -291,53 +412,55 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
           </div>
           <div className="line-chart">
             <div className="y-axis">
-              <span>8k</span>
-              <span>6k</span>
-              <span>4k</span>
-              <span>2k</span>
-              <span>0</span>
+              {axisValues.map((value) => (
+                <span key={value}>{formatAxisValue(value)}</span>
+              ))}
             </div>
             <div className="line-area">
               <div className="grid-lines" />
-              <svg
-                viewBox="0 0 600 160"
-                preserveAspectRatio="none"
-                aria-label="Enrollment by grade chart"
-              >
-                <path
-                  d="M0 112 L75 82 L150 94 L225 62 L300 72 L375 44 L450 51 L525 28 L600 40"
-                  fill="none"
-                  stroke="#1d4ed8"
-                  strokeWidth="3"
-                />
-                <path
-                  d="M0 128 L75 110 L150 116 L225 92 L300 104 L375 84 L450 93 L525 72 L600 82"
-                  fill="none"
-                  stroke="#7dd3fc"
-                  strokeWidth="3"
-                />
-                <path
-                  d="M0 112 L75 82 L150 94 L225 62 L300 72 L375 44 L450 51 L525 28 L600 40 L600 160 L0 160Z"
-                  fill="url(#blueFill)"
-                  opacity=".18"
-                />
-                <defs>
-                  <linearGradient id="blueFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop stopColor="#1d4ed8" />
-                    <stop offset="1" stopColor="#eff6ff" />
-                  </linearGradient>
-                </defs>
-              </svg>
+              {enrollmentChartRows.length === 0 ? (
+                <div className="empty-state">
+                  <Users />
+                  <strong>No enrollment records</strong>
+                  <span>
+                    Add enrollment records for {currentAcademicYear.name}.
+                  </span>
+                </div>
+              ) : (
+                <svg
+                  viewBox="0 0 600 160"
+                  preserveAspectRatio="none"
+                  aria-label="Enrollment by grade chart"
+                >
+                  <path
+                    d={maleLinePath}
+                    fill="none"
+                    stroke="#1d4ed8"
+                    strokeWidth="3"
+                  />
+                  <path
+                    d={femaleLinePath}
+                    fill="none"
+                    stroke="#7dd3fc"
+                    strokeWidth="3"
+                  />
+                  <path
+                    d={maleFillPath}
+                    fill="url(#blueFill)"
+                    opacity=".18"
+                  />
+                  <defs>
+                    <linearGradient id="blueFill" x1="0" x2="0" y1="0" y2="1">
+                      <stop stopColor="#1d4ed8" />
+                      <stop offset="1" stopColor="#eff6ff" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              )}
               <div className="x-axis">
-                <span>Grade 1</span>
-                <span>Grade 2</span>
-                <span>Grade 3</span>
-                <span>Grade 4</span>
-                <span>Grade 5</span>
-                <span>Grade 6</span>
-                <span>Grade 7</span>
-                <span>Grade 8</span>
-                <span>Grade 9</span>
+                {enrollmentChartRows.map((row) => (
+                  <span key={row.grade}>{row.grade}</span>
+                ))}
               </div>
             </div>
           </div>
@@ -424,9 +547,9 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
             </button>
           </div>
           <div className="activity-list">
-            {dashboardRecentActivities.map((activity) => (
+            {dashboardRecentActivities.map((activity, index) => (
               <ActivityRow
-                key={`${activity.title}-${activity.entity}`}
+                key={activity.id ?? `${activity.title}-${activity.entity}-${activity.time}-${index}`}
                 icon={activityIcons[activity.icon]}
                 title={activity.title}
                 entity={activity.entity}

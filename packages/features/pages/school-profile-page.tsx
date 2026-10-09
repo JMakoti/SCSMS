@@ -765,6 +765,7 @@ export function SchoolProfile({
     ["Registration status", formatSchoolRegistrationStatus(registrationStatus)],
     ["Level", formatSchoolLevel(schoolLevel)],
     ["Ownership", formatSchoolOwnership(schoolOwnership)],
+    ["Cluster", school.clusterLevel ? `Cluster ${school.clusterLevel}` : "Not provided"],
     ["Gender", formatSchoolGender(school.genderType)],
     ["Boarding", formatSchoolBoarding(school.boardingType)],
     ["Title deed", formatSchoolTitleDeed(titleDeed)],
@@ -1008,6 +1009,14 @@ export function SchoolProfile({
                     />
                     {formatSchoolOwnership(schoolOwnership)}
                   </span>
+                </dd>
+              </div>
+              <div>
+                <dt>Cluster</dt>
+                <dd>
+                  {school.clusterLevel
+                    ? `Cluster ${school.clusterLevel}`
+                    : "Not provided"}
                 </dd>
               </div>
               <div>

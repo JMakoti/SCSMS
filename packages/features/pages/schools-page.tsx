@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@scsms/ui/components/button";
 import { useFeatureData } from "../data/feature-data-context";
@@ -73,19 +73,15 @@ function SchoolsPage({
     { label: "Senior Secondary", value: "SENIOR_SECONDARY" },
     { label: "Integrated", value: "INTEGRATED" },
   ];
-  const filtered = useMemo(
-    () =>
-      [...schools]
-        .sort((a, b) => a.displayName.localeCompare(b.displayName))
-        .filter(
-          (s) =>
-            (filter === "All" || s.institutionType === filter) &&
-            `${s.displayName} ${s.officialName} ${s.schoolCode ?? ""} ${s.ward ?? ""} ${formatSchoolClassification(getSchoolClassification(s))} ${formatSchoolLevel(getSchoolLevel(s))} ${formatSchoolOwnership(getSchoolOwnership(s))} ${formatSchoolRegistrationStatus(getSchoolRegistrationStatus(s))}`
-              .toLowerCase()
-              .includes(query.toLowerCase()),
-        ),
-    [query, filter],
-  );
+  const filtered = [...schools]
+    .sort((a, b) => a.displayName.localeCompare(b.displayName))
+    .filter(
+      (s) =>
+        (filter === "All" || s.institutionType === filter) &&
+        `${s.displayName} ${s.officialName} ${s.schoolCode ?? ""} ${s.ward ?? ""} ${s.clusterLevel ?? ""} ${formatSchoolClassification(getSchoolClassification(s))} ${formatSchoolLevel(getSchoolLevel(s))} ${formatSchoolOwnership(getSchoolOwnership(s))} ${formatSchoolRegistrationStatus(getSchoolRegistrationStatus(s))}`
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+    );
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages);
   const paginated = filtered.slice(
@@ -102,6 +98,10 @@ function SchoolsPage({
     setPage(1);
   }, [query, filter, rowsPerPage]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [schools.length]);
+
   const toggle = (id: string) =>
     setSelected((p) =>
       p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
@@ -115,6 +115,7 @@ function SchoolsPage({
       "Registration Status",
       "Level",
       "Ownership",
+      "Cluster",
       "Gender",
       "Boarding",
       "Title Deed",
@@ -129,6 +130,7 @@ function SchoolsPage({
       formatSchoolRegistrationStatus(getSchoolRegistrationStatus(school)),
       formatSchoolLevel(getSchoolLevel(school)),
       formatSchoolOwnership(getSchoolOwnership(school)),
+      school.clusterLevel ? `Cluster ${school.clusterLevel}` : "",
       formatSchoolGender(school.genderType),
       formatSchoolBoarding(school.boardingType),
       formatSchoolTitleDeed(getSchoolTitleDeed(school)),
@@ -395,6 +397,9 @@ function SchoolsPage({
                 <th>
                   Ownership <ChevronDown />
                 </th>
+                <th>
+                  Cluster <ChevronDown />
+                </th>
                 {columns && (
                   <>
                     <th>
@@ -461,6 +466,7 @@ function SchoolsPage({
                       {formatSchoolOwnership(getSchoolOwnership(s))}
                     </span>
                   </td>
+                  <td>{s.clusterLevel ? `Cluster ${s.clusterLevel}` : "Not provided"}</td>
                   {columns && (
                     <>
                       <td>{formatSchoolGender(s.genderType)}</td>

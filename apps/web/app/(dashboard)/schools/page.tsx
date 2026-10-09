@@ -2,6 +2,7 @@
 
 import SchoolsRoutePage from "@scsms/features/pages/schools-route-page";
 import { saveEnrollmentGrade } from "@/lib/enrollment";
+import { createSchool } from "@/lib/school";
 import {
   createInfrastructureProject,
   deleteInfrastructureProject,
@@ -18,6 +19,7 @@ import {
 export default function SchoolsPage() {
   return (
     <SchoolsRoutePage
+      onSaveSchool={createSchool}
       onSaveEnrollmentGrade={saveEnrollmentGrade}
       onSaveInfrastructureFacility={saveInfrastructureFacility}
       onCreateInfrastructureProject={createInfrastructureProject}

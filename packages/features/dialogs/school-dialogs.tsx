@@ -184,6 +184,7 @@ export function AddSchoolDialog({
         registrationStatus: "REGISTERED",
         level: "Primary",
         ownershipType: "Goverment",
+        clusterLevel: "1",
         genderType: "MIXED",
         boardingType: "DAY",
         titleDeed: "NO",
@@ -373,6 +374,15 @@ export function AddSchoolDialog({
                         {option.label}
                       </option>
                     ))}
+                  </select>
+                </label>
+                <label>
+                  Cluster level
+                  <select {...register("clusterLevel")}>
+                    <option value="1">Cluster 1</option>
+                    <option value="2">Cluster 2</option>
+                    <option value="3">Cluster 3</option>
+                    <option value="4">Cluster 4</option>
                   </select>
                 </label>
                 <label>

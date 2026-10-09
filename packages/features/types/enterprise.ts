@@ -90,6 +90,7 @@ export type RabaiSchool = {
   institutionType: InstitutionType;
   sourceInstitutionType: string | null;
   ownershipType: OwnershipType;
+  clusterLevel?: string | null;
   genderType: GenderType;
   boardingType: BoardingType;
   county: string | null;

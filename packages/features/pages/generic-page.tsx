@@ -107,17 +107,19 @@ export function GenericPage({
         : (moduleRecords[active] ?? []);
   const staffByName = new Map(staff.map((record) => [record.name, record]));
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredModuleItems = moduleItems.filter((item, index) => {
-    if (!normalizedQuery) return true;
-    const ward = active === "Ward" ? wardSummaries[index] : null;
-    const staffRecord = active === "Staff" ? staffByName.get(item) : null;
-    const details = ward
-      ? `${ward.wardCode ?? ""} ${ward.schoolCount} ${ward.studentCount} ${ward.teacherCount}`
-      : staffRecord
-        ? `${staffRecord.assignedSchool} ${staffRecord.role} ${staffRecord.phone}`
-      : `record reference ${String(index + 1).padStart(3, "0")}`;
-    return `${item} ${details}`.toLowerCase().includes(normalizedQuery);
-  });
+  const filteredModuleItems = moduleItems
+    .map((item, index) => ({ item, index }))
+    .filter(({ item, index }) => {
+      if (!normalizedQuery) return true;
+      const ward = active === "Ward" ? wardSummaries[index] : null;
+      const staffRecord = active === "Staff" ? staffByName.get(item) : null;
+      const details = ward
+        ? `${ward.wardCode ?? ""} ${ward.schoolCount} ${ward.studentCount} ${ward.teacherCount}`
+        : staffRecord
+          ? `${staffRecord.assignedSchool} ${staffRecord.role} ${staffRecord.phone}`
+          : `record reference ${String(index + 1).padStart(3, "0")}`;
+      return `${item} ${details}`.toLowerCase().includes(normalizedQuery);
+    });
   return (
     <div className="content">
       <PageHeader
@@ -235,13 +237,12 @@ export function GenericPage({
                   : "Try a different search term."}
               </span>
             </div>
-          ) : filteredModuleItems.map((item) => {
-            const i = moduleItems.indexOf(item);
+          ) : filteredModuleItems.map(({ item, index: i }) => {
             const ward = active === "Ward" ? wardSummaries[i] : null;
             const staffRecord = active === "Staff" ? staffByName.get(item) : null;
 
             return (
-              <div className="module-row" key={item}>
+              <div className="module-row" key={`${item}-${i}`}>
                 <div className={`row-icon tone-${i % 4}`}>
                   <Icon />
                 </div>

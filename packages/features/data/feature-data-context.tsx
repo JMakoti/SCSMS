@@ -154,6 +154,15 @@ export type FeatureSyncRecord = {
   label: string;
 };
 
+export type FeatureAuditLogRecord = {
+  id: string;
+  title: string;
+  schoolName: string;
+  time: string;
+  entityType: string;
+  entityId: string;
+};
+
 export type FeatureSubjectCombination = {
   id: string;
   schoolId: string;
@@ -206,6 +215,7 @@ export type FeatureData = {
   performanceSubjects: FeaturePerformanceSubject[];
   dashboardGenderDistribution: DashboardGenderDistribution[];
   dashboardRecentActivities: DashboardRecentActivity[];
+  auditLogRecords: FeatureAuditLogRecord[];
   pendingSyncCount: number;
   syncRecords: FeatureSyncRecord[];
   subjectCombinations: FeatureSubjectCombination[];
@@ -232,6 +242,7 @@ const emptyFeatureData: FeatureData = {
   performanceSubjects: [],
   dashboardGenderDistribution: [],
   dashboardRecentActivities: [],
+  auditLogRecords: [],
   pendingSyncCount: 0,
   syncRecords: [],
   subjectCombinations: [],
@@ -281,6 +292,7 @@ export function isFeatureData(value: unknown): value is FeatureData {
     "performanceSubjects",
     "dashboardGenderDistribution",
     "dashboardRecentActivities",
+    "auditLogRecords",
     "schoolHistoryActivities",
     "wards",
     "subCounties",

@@ -34,6 +34,19 @@ const display = (value: string | null | undefined) =>
   value ? value.replaceAll("_", " ") : "Not recorded";
 const iso = (value: Date | string | null | undefined) =>
   value instanceof Date ? value.toISOString() : value ?? "";
+const formatEastAfricaTime = (value: Date | string | null | undefined) => {
+  const normalized = iso(value);
+  if (!normalized) return "Not available";
+
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return normalized;
+
+  return `${new Intl.DateTimeFormat("en-KE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Africa/Nairobi",
+  }).format(date)} EAT`;
+};
 const readAuditSchoolId = (record: {
   entityType: string;
   entityId: string | null;
@@ -170,6 +183,34 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
   const subCountiesById = new Map(
     subCountyRecords.map((record) => [record.id, record]),
   );
+  const readAuditEntityName = (record: {
+    entityType: string;
+    entityId: string | null;
+    beforeJson: string | null;
+    afterJson: string | null;
+  }) => {
+    const schoolId = readAuditSchoolId(record) || record.entityId || "";
+    const schoolName = schoolsById.get(schoolId)?.displayName;
+    if (schoolName) return schoolName;
+
+    for (const json of [record.afterJson, record.beforeJson]) {
+      if (!json) continue;
+      try {
+        const parsed: unknown = JSON.parse(json);
+        if (!parsed || typeof parsed !== "object") continue;
+        const data = parsed as Record<string, unknown>;
+        for (const field of ["displayName", "officialName", "name", "projectName"]) {
+          if (typeof data[field] === "string" && data[field].trim()) {
+            return data[field];
+          }
+        }
+      } catch {
+        // Ignore legacy audit payloads that were not stored as JSON.
+      }
+    }
+
+    return display(record.entityType);
+  };
   const gradeRowsBySnapshot = new Map<string, typeof enrollmentGradeRecords>();
   for (const row of enrollmentGradeRecords) {
     const rows = gradeRowsBySnapshot.get(row.snapshotId) ?? [];
@@ -225,6 +266,7 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
       institutionType: mapInstitutionType(school.level),
       sourceInstitutionType: school.institutionType,
       ownershipType: mapOwnership(school.ownershipType),
+      clusterLevel: school.clusterLevel,
       genderType: mapGender(school.genderType),
       boardingType: mapBoarding(school.boardingType),
       county: parentSubCounty?.county ?? null,
@@ -429,11 +471,12 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
       ).length,
     };
   });
-  const dashboardRecentActivities = auditRecords.slice(0, 8).map((record) => ({
+  const dashboardRecentActivities = auditRecords.slice(0, 5).map((record) => ({
+    id: record.id,
     icon: record.action.toLowerCase().includes("create") ? "Plus" as const : "Pencil" as const,
     title: display(record.action),
-    entity: [record.entityType, record.entityId].filter(Boolean).join(" / "),
-    time: iso(record.createdAt),
+    entity: readAuditEntityName(record),
+    time: formatEastAfricaTime(record.createdAt),
     tone: "blue",
   }));
   const schoolHistoryActivities = auditRecords
@@ -441,7 +484,7 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
       schoolId: readAuditSchoolId(record),
       title: display(record.action),
       detail: display(record.entityType),
-      time: iso(record.createdAt),
+      time: formatEastAfricaTime(record.createdAt),
       icon: auditIcon(record.entityType),
     }))
     .filter((activity) => activity.schoolId);
@@ -573,7 +616,10 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
       "School Contacts": contacts.map((contact) => contact.person.name),
       Reports: reportTemplates.map((template) => template.title),
       "Data Quality": schools.map((school) => school.displayName),
-      "Audit Logs": auditRecords.map((record) => record.id),
+      "Audit Logs": auditRecords.map(
+        (record) =>
+          `${display(record.action)} - ${readAuditEntityName(record)} - ${formatEastAfricaTime(record.createdAt)}`,
+      ),
       "School Performance": [...new Set(performanceRecords.map((record) => record.school))],
       "Users & Roles": [],
       Settings: [],

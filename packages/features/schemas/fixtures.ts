@@ -91,6 +91,7 @@ export const dashboardActivityIconSchema = z.enum([
 ]);
 
 export const dashboardRecentActivitySchema = z.object({
+  id: z.string().optional(),
   icon: dashboardActivityIconSchema,
   title: z.string(),
   entity: z.string(),
