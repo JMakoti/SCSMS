@@ -1,139 +1,36 @@
-# Repository Guidelines
+# AGENTS.md
 
-## Project Structure & Module Organization
+## Workspace
+- pnpm 11.10.0 + Turbo monorepo. Members: `apps/*`, `packages/*`, `database` (`pnpm-workspace.yaml:1`). Root scripts are only `dev:web` / `dev:desktop`.
+- Apps: `apps/web` (Next.js 16 browser) and `apps/desktop` (Next.js 16 inside Tauri 2 + Rust in `apps/desktop/src-tauri`). Shared: `@scsms/db` (`database`), `@scsms/features`, `@scsms/ui`, `@scsms/public`.
+- Prefer shared code in `@scsms/db` / `@scsms/features` / `@scsms/ui` before duplicating in an app. Changes to those packages affect both `web` and `desktop`.
+- PowerShell: use `pnpm.cmd` when `pnpm.ps1` is blocked by execution policy.
 
-This is the SCSMS monorepo, managed with pnpm workspaces. It contains:
+## Commands
+- Install: `pnpm.cmd install` (root)
+- Dev: `pnpm.cmd dev:web` | `pnpm.cmd dev:desktop` (alias for `pnpm --filter web|desktop` + `tauri:dev`)
+- Focused: `pnpm.cmd --filter web dev|build|lint` / `pnpm.cmd --filter desktop dev|build|lint|tauri:dev|tauri:build` / `pnpm.cmd --filter @scsms/db <script>`
+- Rust (from `apps/desktop/src-tauri`): `cargo fmt` / `cargo check` / `cargo clippy --all-targets -- -D warnings` (requires Rust 1.77.2+)
+- No repo-wide test runner — root `pnpm test` just errors. Verify with `build`/`lint`/`cargo` for the area touched.
 
-- `apps/web`: browser-based Next.js 16 application.
-- `apps/desktop`: Next.js 16 frontend running inside a Tauri 2 desktop shell.
-- `apps/desktop/src-tauri`: Rust backend for the desktop app.
-- `database`: Drizzle schemas, migrations, clients, seed scripts, static seed data, and sync helpers.
-- `packages/features`: shared feature pages, dialogs, schemas, records, auth, navigation, and app shell code.
-- `packages/ui`: shared UI components, styles, and utilities.
-- `packages/public`: shared static assets.
-- `docs` and `services`: supporting documentation and service-level code.
+## Database — Two Targets, Different Wiring
+- Postgres (server/seed): client `database/src/postgres.ts`, schemas `database/src/postgress-schemas/` (note typo — `postgress`), out `database/drizzle/postgres`, config `drizzle.config.postgres.ts`.
+- SQLite (desktop): schemas `database/src/schema/`, out `database/drizzle/sqlite`, config `drizzle.config.sqlite.ts`. Exported as `@scsms/db` main entry (`database/src/index.ts`). `database/src/sqlite.ts` is a commented placeholder — not used.
+- `pnpm.cmd --filter @scsms/db db:seed` seeds **Postgres only** (`database/src/seed/index.ts` → sub-county + administrator). Desktop SQLite is seeded at Tauri startup in Rust, not by this command.
+- SQLite workflows: `db:generate:sqlite` / `db:push:sqlite` / `db:studio:sqlite`; Postgres: `db:generate:postgres` / `db:push:postgres` / `db:seed`. Typical seed: `pnpm.cmd --filter @scsms/db db:push:postgres && pnpm.cmd --filter @scsms/db db:seed`.
+- After `db:generate:sqlite`, manually wire the new `database/drizzle/sqlite/*.sql` into `apps/desktop/src-tauri/src/database/migrations.rs` — add `include_str!` const + version constant + `run_migrations` block (existing pattern: `INITIAL_SCHEMA_SQL` → `SCHOOL_CLUSTER_LEVEL_SCHEMA_SQL`). Otherwise desktop never runs it.
 
-Prefer shared code in `packages/features`, `packages/ui`, and `database` before duplicating logic inside an app. Use each package's existing exports and local patterns.
+## Desktop Bridge (Do Not Replace)
+- `apps/desktop/lib/database.ts` uses `drizzle-orm/sqlite-proxy` → `invoke("run_sql", {sql, params, method})`.
+- Rust handler `apps/desktop/src-tauri/src/database/proxy.rs:run_sql` binds `Value::Null/String/Bool/Number` and supports methods `run`/`all`/`values`/`get`; others error.
+- `lib.rs:run` order matters: `create_pool("sqlite:scsms.db")` → `run_migrations` → `seed_initial_data` → `handle.manage(pool)` → `invoke_handler![login, run_sql, seed_database, store_school_logo, resolve_school_logo_path]`. Do not reintroduce `tauri-plugin-sql`.
 
-## Build, Test, and Development Commands
+## Env & Config
+- Root `.env` only (loaded by `database/src/seed/index.ts` and `database/drizzle.config.postgres.ts` via `path.resolve(__dirname, "../.env")`). Required: `DATABASE_URL`, `SCSMS_ADMIN_PASSWORD` (≥8 chars, bcrypt-hashed), `SCSMS_SESSION_SECRET` (≥32 chars random). See `.env.example`.
+- Imports: `import { users } from "@scsms/db"` (SQLite) vs `import { db } from "@scsms/db/postgres"` / `import { users } from "@scsms/db/postgress-schemas/user"` (Postgres). Package exports defined in `database/package.json:27`.
 
-Use `pnpm.cmd` on PowerShell when `pnpm.ps1` is blocked by execution policy.
-
-Root commands:
-
-- `pnpm.cmd install`: install workspace dependencies.
-- `pnpm.cmd dev:web`: start the web app.
-- `pnpm.cmd dev:desktop`: start the Tauri desktop app.
-
-Direct package commands:
-
-- `pnpm.cmd --filter web dev`
-- `pnpm.cmd --filter web build`
-- `pnpm.cmd --filter web lint`
-- `pnpm.cmd --filter desktop tauri:dev`
-- `pnpm.cmd --filter desktop build`
-- `pnpm.cmd --filter desktop lint`
-- `pnpm.cmd --filter @scsms/db db:seed`
-
-Tauri backend checks from `apps/desktop/src-tauri`:
-
-- `cargo fmt`
-- `cargo check`
-- `cargo clippy --all-targets -- -D warnings`
-
-There is no repo-wide test runner yet. Use focused build/lint/Cargo checks for the area you changed and document any verification that could not run.
-
-## Database Guidelines
-
-The `database` package supports both PostgreSQL and SQLite schemas.
-
-- PostgreSQL is used by the active package seed script and `src/postgres.ts`.
-- SQLite schemas under `database/src/schema` are used by the desktop app.
-- Desktop SQLite does not use `database/src/sqlite.ts`; that file is currently a commented placeholder.
-- The desktop app imports SQLite schema from `@scsms/db` and queries through Drizzle `sqlite-proxy`.
-
-Seed local PostgreSQL with:
-
-```powershell
-pnpm.cmd --filter @scsms/db db:push:postgres
-pnpm.cmd --filter @scsms/db db:seed
-```
-
-Generate SQLite migration SQL for the desktop app with:
-
-```powershell
-pnpm.cmd --filter @scsms/db db:generate:sqlite
-```
-
-After regenerating SQLite migrations, verify `apps/desktop/src-tauri/src/database/migrations.rs` still points at the expected generated SQL file.
-
-Environment values live in the root `.env`:
-
-```env
-DATABASE_URL=postgresql://postgres:root@localhost:5432/scsmsdb
-SCSMS_ADMIN_PASSWORD=Admin@123
-```
-
-Do not commit secrets or local-only environment files.
-
-## Desktop And Tauri Notes
-
-The desktop app uses Next.js for UI and Tauri/Rust for native database access.
-
-Drizzle ORM runs in `sqlite-proxy` mode from `apps/desktop/lib/database.ts`. SQL generated by Drizzle is sent to the Tauri command `run_sql`, implemented in `apps/desktop/src-tauri/src/database/proxy.rs`, where `sqlx` executes it against local SQLite and returns JSON rows.
-
-The Tauri startup flow in `apps/desktop/src-tauri/src/lib.rs` should:
-
-1. Create the SQLite pool for `sqlite:scsms.db`.
-2. Run migrations.
-3. Seed initial data.
-4. Store the pool in Tauri managed state.
-5. Register commands.
-
-Avoid reintroducing `tauri-plugin-sql` unless the architecture intentionally changes. The current bridge is the custom `run_sql` command.
-
-## Coding Style & Naming Conventions
-
-Write TypeScript and React with strict mode in mind. Use two-space indentation, double quotes, and semicolons. Components should use PascalCase filenames or exports, hooks should use `useSomething`, and utility functions should use camelCase.
-
-Use named exports for reusable helpers where practical. Prefer existing patterns from `packages/features`, `packages/ui`, and app-local code before adding new abstractions.
-
-Compose Tailwind classes with the shared `cn` helper when conditional class merging is needed. Keep UI changes consistent with the dense administrative design language already used in the app.
-
-Rust code in `src-tauri` should be formatted with `cargo fmt` and pass `cargo clippy --all-targets -- -D warnings`.
-
-## Frontend And Styling Guidelines
-
-Shared login/app styling currently lives in `packages/ui/src/styles/globals.css`. Feature UI often lives in `packages/features` and is consumed by both `apps/web` and `apps/desktop`.
-
-When changing shared feature components, check both apps for impact. Use lucide icons for actions where a suitable icon exists. Keep controls compact, accessible, and aligned with existing dashboard styles.
-
-## Testing Guidelines
-
-No formal test framework is configured. When adding tests later, place them close to the code they cover and use `*.test.ts` or `*.test.tsx`.
-
-Until then, prioritize:
-
-- `pnpm.cmd --filter <app> build` for app changes.
-- `pnpm.cmd --filter <app> lint` for frontend lint checks.
-- `cargo check` and `cargo clippy` for Tauri changes.
-- Manual checks for UI flows, login behavior, database smoke tests, dialogs, navigation, and data-heavy states.
-
-## Commit & Pull Request Guidelines
-
-Keep commits focused and use short imperative messages, for example `Fix enrollment register search` or `feat: add desktop database smoke test`.
-
-Pull requests should include:
-
-- Concise summary.
-- Verification steps run.
-- Screenshots or recordings for UI changes.
-- Any database, seed, migration, or environment steps reviewers need to repeat.
-
-## Security & Configuration Tips
-
-Do not commit secrets, local `.env` files, generated folders, or build output. Keep `.next/`, `node_modules/`, Tauri `target/`, and generated runtime database files out of review.
-
-Production analytics are enabled only when `NODE_ENV` is `production`, so verify both development and built behavior when touching layout or telemetry.
-
-The desktop `run_sql` bridge is intentionally powerful because it is how Drizzle talks to SQLite. Treat frontend code as trusted and avoid exposing arbitrary user-written SQL.
+## Conventions & Gotchas
+- Shared styling lives in `packages/ui/src/styles/globals.css`; use `cn` for Tailwind merging, `lucide-react` for icons, keep dense admin layout. Checking both apps after shared feature changes is required.
+- `turbo.json:3` — `build` has `dependsOn: ["^build"]`; `dev` is persistent/no-cache.
+- Never commit `.env`, `.next/`, `node_modules/`, `target/`, `*.db`/`*.sqlite` (all gitignored). `frontend code is trusted` — `run_sql` is intentionally powerful, do not expose arbitrary user SQL.
+- `apps/desktop/AGENTS.md` and `apps/web/AGENTS.md` are auto-generated by `next dev` (`node_modules/next/dist/server/lib/generate-agent-files.js`) — leave them.

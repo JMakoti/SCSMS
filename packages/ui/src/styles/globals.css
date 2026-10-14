@@ -9041,3 +9041,118 @@ dialog.confirm-delete-backdrop::backdrop {
     width: 100%;
   }
 }
+
+/* SC-SMS Update — adapted from Windows Update, using design tokens */
+.scsms-update-panel {
+  --foreground: #1e3a5f;
+  --card-foreground: #1e3a5f;
+  --muted-foreground: #52657d;
+  --primary: #2563eb;
+  --primary-foreground: #fff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #334155;
+  --muted: #f1f5f9;
+  --card: #fff;
+  --border: #dfe7f1;
+  --ring: #60a5fa;
+  --destructive: #b91c1c;
+  --update-icon-color: #2563eb;
+  color-scheme: light;
+  color: var(--foreground);
+  background: var(--card);
+  padding: 20px 22px;
+  grid-column: 1 / -1;
+}
+.dark-theme .scsms-update-panel {
+  --foreground: #e6edf7;
+  --card-foreground: #e6edf7;
+  --muted-foreground: #b3c1d4;
+  --secondary: #172a46;
+  --secondary-foreground: #dbeafe;
+  --muted: #182335;
+  --card: #111b2b;
+  --border: #2b3a50;
+  --destructive: #fca5a5;
+  --update-icon-color: #93c5fd;
+  color-scheme: dark;
+}
+.scsms-update-heading h2 { margin: 0; color: var(--foreground); font-size: 20px; }
+.scsms-update-heading p { margin: 4px 0 18px; color: var(--muted-foreground); font-size: 11px; }
+.scsms-update-status { display: flex; align-items: center; gap: 22px; padding: 8px 0 20px; flex-wrap: wrap; }
+.scsms-update-icon { width: 104px; height: 96px; flex: none; }
+.scsms-update-status-text { flex: 1; min-width: 200px; }
+.scsms-update-status-text h3 { margin: 0 0 4px; color: var(--foreground); font-size: 18px; }
+.scsms-update-status-text p { margin: 0; color: var(--muted-foreground); font-size: 11px; }
+.scsms-update-primary { background: var(--primary); color: var(--primary-foreground); border: 1px solid var(--primary); border-radius: 8px; padding: 10px 16px; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.scsms-update-primary:hover { filter: brightness(1.08); }
+.scsms-update-primary:disabled { opacity: .6; cursor: not-allowed; }
+.scsms-update-section-title { font-size: 12px; font-weight: 700; margin: 0 0 10px; color: var(--foreground); }
+.scsms-update-card { background: transparent; border: 0; border-radius: 0; padding: 16px 0; margin-bottom: 0; display: flex; align-items: center; gap: 16px; }
+.scsms-update-card.clickable { cursor: pointer; }
+.scsms-update-card.clickable:hover { background: var(--muted); }
+.scsms-update-lead { width: 26px; height: 26px; flex: none; color: var(--update-icon-color); stroke: currentColor; fill: none; stroke-width: 1.6; }
+.scsms-update-card-body { flex: 1; min-width: 0; }
+.scsms-update-card-title { font-size: 13px; font-weight: 700; color: var(--card-foreground); }
+.scsms-update-card-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
+.scsms-update-card-sub a { color: var(--primary); text-decoration: none; }
+.scsms-update-card-sub a:hover { text-decoration: underline; }
+.scsms-update-toggle-wrap { display: flex; align-items: center; gap: 12px; font-size: 11px; font-weight: 700; color: var(--muted-foreground); }
+.scsms-switch { width: 44px; height: 24px; border-radius: 999px; border: 1px solid var(--border); background: transparent; position: relative; cursor: pointer; padding: 0; transition: background .15s, border-color .15s; }
+.scsms-switch::after { content: ""; position: absolute; top: 3px; left: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted-foreground); opacity: .9; transition: transform .15s, background .15s; }
+.scsms-switch[aria-checked="true"] { background: var(--primary); border-color: var(--primary); }
+.scsms-switch[aria-checked="true"]::after { transform: translateX(18px); background: var(--primary-foreground); opacity: 1; }
+.scsms-date-btn { background: var(--secondary); color: var(--secondary-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font: inherit; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 10px; cursor: pointer; position: relative; }
+.scsms-date-btn:hover { filter: brightness(1.03); }
+.scsms-date-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.scsms-chev { width: 16px; height: 16px; stroke: var(--muted-foreground); fill: none; stroke-width: 1.8; transition: transform .15s; }
+.scsms-chev.open { transform: rotate(90deg); }
+.scsms-history { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 8px; background: var(--card); }
+.scsms-h-item { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.scsms-h-item:last-child { border-bottom: 0; }
+.scsms-h-title { font-size: 13px; font-weight: 700; color: var(--card-foreground); }
+.scsms-h-sub { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
+
+.scsms-update-status-text .scsms-update-version { margin-top: 5px; }
+.scsms-update-primary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex-shrink: 0; }
+.scsms-update-primary svg, .scsms-update-resume svg { width: 14px; height: 14px; }
+.scsms-update-panel :is(button, input):focus-visible, .scsms-date-btn:focus-within { outline: 2px solid var(--ring); outline-offset: 3px; }
+.scsms-switch:disabled, .scsms-date-btn.is-disabled { opacity: .5; cursor: not-allowed; }
+.scsms-date-btn.is-disabled input { cursor: not-allowed; }
+.scsms-date-btn { flex-shrink: 0; }
+.scsms-update-pause-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.scsms-update-resume { display: inline-flex; align-items: center; gap: 5px; padding: 6px 0; border: 0; background: transparent; color: var(--primary); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.scsms-update-resume:disabled { opacity: .5; cursor: not-allowed; }
+.scsms-update-history-toggle { width: 100%; text-align: left; font: inherit; }
+.scsms-update-release { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 22px; background: var(--card); }
+.scsms-update-release-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.scsms-update-release-heading h3 { margin: 0; color: var(--card-foreground); font-size: 13px; }
+.scsms-update-release-heading p, .scsms-update-install-note { margin: 4px 0 0; font-size: 11px; color: var(--muted-foreground); }
+.scsms-update-release-notes { margin-top: 16px; }
+.scsms-update-release-notes h4 { margin: 0 0 6px; font-size: 11px; font-weight: 700; color: var(--card-foreground); }
+.scsms-update-release-notes p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; color: var(--muted-foreground); }
+.scsms-update-release .scsms-update-install-note { margin-top: 14px; }
+.scsms-update-progress { display: flex; align-items: center; gap: 12px; margin-top: 16px; font-size: 11px; color: var(--muted-foreground); }
+.scsms-update-progress progress { width: 100%; min-width: 80px; height: 8px; accent-color: var(--primary); }
+.scsms-update-progress span { flex-shrink: 0; }
+.scsms-update-notice { margin: 0 0 20px; padding: 12px 16px; border: 1px solid var(--destructive); border-radius: 8px; color: var(--foreground); font-size: 11px; }
+.scsms-update-notice strong { color: var(--destructive); }
+.scsms-update-notice p { margin: 5px 0; overflow-wrap: anywhere; }
+.scsms-update-notice span { color: var(--muted-foreground); }
+@media (max-width: 640px) {
+  .scsms-update-panel { padding: 18px 16px; }
+  .scsms-update-status { gap: 14px; }
+  .scsms-update-icon { width: 80px; height: 74px; }
+  .scsms-update-status-text { min-width: 0; flex-basis: calc(100% - 94px); }
+  .scsms-update-status-text h3 { font-size: 16px; }
+  .scsms-update-status > .scsms-update-primary { margin-left: 94px; }
+  .scsms-update-card { gap: 12px; flex-wrap: wrap; }
+  .scsms-update-card-body { flex-basis: calc(100% - 38px); }
+  .scsms-update-toggle-wrap, .scsms-update-pause-actions { margin-left: 38px; }
+  .scsms-update-history-toggle { flex-wrap: nowrap; }
+  .scsms-update-history-toggle .scsms-update-card-body { flex-basis: auto; }
+  .scsms-update-release { padding: 14px; }
+  .scsms-update-progress { align-items: flex-start; flex-direction: column; gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scsms-switch, .scsms-switch::after, .scsms-chev { transition: none; }
+}

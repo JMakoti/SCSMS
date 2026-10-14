@@ -7,14 +7,20 @@ import {
   Building2,
   FileBarChart2,
   Gauge,
+  History,
   MapPinned,
   Pencil,
   Plus,
+  Server,
+  Settings,
   Trash2,
   UserCog,
   Users,
   X,
 } from "lucide-react";
+
+import { SettingsUpdatePanel } from "../updates/settings-update-panel";
+
 import { useAcademicYear } from "../academic-years/academic-year-context";
 import { useFeatureData } from "../data/feature-data-context";
 import type { WardDetailRecord } from "../data/feature-data-context";
@@ -94,6 +100,7 @@ export function RecordDetail({
     reportTemplates,
     performanceRecords,
     infrastructureFacilities,
+    auditLogRecords,
   } = useFeatureData();
   const schoolDetail = schools.find(
     (school) =>
@@ -160,6 +167,21 @@ export function RecordDetail({
           (report) => report.key === item || report.title === item,
         )
       : null;
+  const auditDetail =
+    active === "Audit Logs"
+      ? auditLogRecords.find((record) => record.id === item) ??
+        auditLogRecords.find(
+          (record) => `${record.title} - ${record.schoolName}` === item,
+        ) ??
+        auditLogRecords.find(
+          (record) =>
+            `${record.title} - ${record.schoolName} - ${record.time}` === item,
+        ) ??
+        null
+      : null;
+  const auditLabel = auditDetail
+    ? `${auditDetail.title} - ${auditDetail.schoolName}`
+    : item;
   const staffDetail =
     active === "Staff"
       ? staffRecords.find((record) => record.name === item)
@@ -220,36 +242,83 @@ export function RecordDetail({
       .toUpperCase()
       .replace(/[^A-Z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
+  const settingsMeta: Record<string, { desc: string; value: string; updated: string }> = {
+    General: { desc: "Core preferences and regional defaults", value: "System defaults", updated: "Managed locally" },
+    Appearance: { desc: "Theme, density and display options", value: "Light — follows system", updated: "Follows system" },
+    "Data & validation": { desc: "Required fields and validation rules", value: "Strict — required checks", updated: "Strict checks" },
+    Synchronization: { desc: "Offline queue and sync cadence", value: "Queued — auto on reconnect", updated: "Auto on reconnect" },
+    Backup: { desc: "Retention, snapshots and restore points", value: "Daily snapshot — local store", updated: "Daily snapshot" },
+    Security: { desc: "Auth, roles and session controls", value: "Role-based — enforced", updated: "Role-based" },
+    Update: { desc: "Stay informed with the latest developments.", value: "View update status", updated: "Check for updates" },
+  };
+  const sysInfoMeta: Record<string, { desc: string; value: string }> = {
+    "Application Healthy": { desc: "Web and desktop shell", value: "Healthy" },
+    "Local Database Healthy": { desc: "SQLite / Postgres bridge", value: "Healthy" },
+    "Storage Healthy": { desc: "Asset and logo storage", value: "Healthy" },
+    "Synchronization Healthy": { desc: "Sync queue and retries", value: "Healthy" },
+  };
+
   const Icon =
-    active === "Staff"
-      ? UserCog
-      : active === "Enrollment"
-        ? Users
-        : active === "Infrastructure"
-          ? Building2
-          : active === "School Performance"
-            ? Gauge
-            : active === "Reports"
-              ? FileBarChart2
-              : active === "Ward"
-                ? MapPinned
-                : BookOpen;
+    active === "Audit Logs"
+      ? History
+      : active === "Settings"
+        ? Settings
+        : active === "System Information"
+          ? Server
+          : active === "Staff"
+            ? UserCog
+            : active === "Enrollment"
+              ? Users
+              : active === "Infrastructure"
+                ? Building2
+                : active === "School Performance"
+                  ? Gauge
+                  : active === "Reports"
+                    ? FileBarChart2
+                    : active === "Ward"
+                      ? MapPinned
+                      : BookOpen;
 
   const fields =
-    active === "Staff"
+    active === "Settings"
       ? [
-          ["Staff ID", staffId],
-          ["Full name", staffDetail?.name ?? item],
-          ["Designation", staffDetail?.role ?? "Teacher"],
-          ["Assigned school", staffDetail?.assignedSchool ?? "Not assigned"],
-          ["Employment type", staffDetail?.employmentType ?? "Not recorded"],
-          ["Employer", staffDetail?.employer ?? "Not recorded"],
-          ["TSC No.", staffTscNo],
-          ["Email address", staffEmail],
-          ["Phone number", staffDetail?.phone ?? "Not provided"],
-          ["Date joined", staffDetail?.dateJoined || "Not provided"],
-          ["Status", staffDetail?.status ?? "Not recorded"],
+          ["Section", item],
+          ["Description", settingsMeta[item]?.desc ?? "Configuration section"],
+          ["Current value", settingsMeta[item]?.value ?? "Managed locally"],
+          ["Updated", settingsMeta[item]?.updated ?? "Managed locally"],
+          ["Scope", "Global — applies to web and desktop"],
         ]
+      : active === "System Information"
+        ? [
+            ["Check", item],
+            ["Description", sysInfoMeta[item]?.desc ?? "Health probe"],
+            ["Status", sysInfoMeta[item]?.value ?? "Healthy"],
+            ["Last checked", "2 minutes ago"],
+            ["Environment", "Local (web: Postgres, desktop: SQLite)"],
+          ]
+        : active === "Audit Logs"
+          ? [
+              ["Audit ID", auditDetail?.id ?? item],
+              ["Activity", auditDetail?.title ?? item],
+              ["School", auditDetail?.schoolName ?? "Not recorded"],
+              ["Entity type", auditDetail?.entityType ?? "Not recorded"],
+              ["Entity ID", auditDetail?.entityId || "Not provided"],
+              ["Timestamp", auditDetail?.time ?? "Not available"],
+            ]
+      : active === "Staff"
+        ? [
+            ["Staff ID", staffId],
+            ["Full name", staffDetail?.name ?? item],
+            ["Designation", staffDetail?.role ?? "Teacher"],
+            ["Assigned school", staffDetail?.assignedSchool ?? "Not assigned"],
+            ["Employment type", staffDetail?.employmentType ?? "Not recorded"],
+            ["Employer", staffDetail?.employer ?? "Not recorded"],
+            ["TSC No.", staffTscNo],
+            ["Email address", staffEmail],
+            ["Phone number", staffDetail?.phone ?? "Not provided"],
+            ["Date joined", staffDetail?.dateJoined || "Not provided"],
+            ["Status", staffDetail?.status ?? "Not recorded"],
+          ]
       : active === "Enrollment"
         ? [
             ["School", item],
@@ -700,29 +769,41 @@ export function RecordDetail({
           </div>
           <div>
             <div className="profile-code">
-              {active === "Staff"
-                  ? staffId
-                : active === "Enrollment"
+              {active === "Settings"
+                ? "SETTINGS"
+                : active === "System Information"
+                  ? "SYSTEM INFORMATION"
+                  : active === "Audit Logs"
+                    ? (auditDetail?.id ?? "AUDIT LOG")
+                    : active === "Staff"
+                      ? staffId
+                  : active === "Enrollment"
                     ? enrollmentDetail?.id ?? "Not provided"
-                  : active === "School Performance"
-                    ? schoolDetail?.knecCode ?? "Not provided"
-                    : active === "Ward"
-                      ? wardCode
-                      : active === "Reports"
-                        ? (reportDetail?.code ?? "REPORT")
-                        : "SC-SMS RECORD"}
+                    : active === "School Performance"
+                      ? schoolDetail?.knecCode ?? "Not provided"
+                      : active === "Ward"
+                        ? wardCode
+                        : active === "Reports"
+                          ? (reportDetail?.code ?? "REPORT")
+                          : "SC-SMS RECORD"}
             </div>
-            <h1>{item}</h1>
+            <h1>{active === "Audit Logs" ? auditLabel : item}</h1>
             <div className="profile-sub">
               <span>{active}</span>
               <i />
-              <StatusBadge status="Active" />
+              <StatusBadge
+                status={
+                  active === "System Information"
+                    ? (sysInfoMeta[item]?.value ?? "Active")
+                    : "Active"
+                }
+              />
             </div>
           </div>
         </div>
         <div className="profile-actions">
           <ExportMenu
-            title={`${active} - ${item}`}
+            title={`${active} - ${active === "Audit Logs" ? auditLabel : item}`}
             filename={`${active.toLowerCase().replaceAll(" ", "-")}-detail`}
             headers={["Field", "Value"]}
             rows={fields.map(([label, value]) => [label, value])}
@@ -736,27 +817,44 @@ export function RecordDetail({
               Add performance details
             </Button>
           )}
-          {active !== "Enrollment" && (
+          {(active === "Settings" || active === "System Information") && (
             <Button
               className="edit-record-button"
               onClick={() =>
                 window.dispatchEvent(
                   new CustomEvent("scsms-edit-record", {
-                    detail: {
-                      active,
-                      item,
-                      staffId: active === "Staff" ? staffDetail?.id : undefined,
-                      wardCode: active === "Ward" ? wardCode : undefined,
-                      wardId: active === "Ward" ? resolvedWardId : undefined,
-                    },
+                    detail: { active, item },
                   }),
                 )
               }
             >
               <Pencil data-icon="inline-start" />
-              Edit {active === "Reports" ? "Report" : "Record"}
+              Update {active === "System Information" ? "Status" : "Settings"}
             </Button>
           )}
+          {active !== "Enrollment" &&
+            active !== "Settings" &&
+            active !== "System Information" && (
+              <Button
+                className="edit-record-button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent("scsms-edit-record", {
+                      detail: {
+                        active,
+                        item,
+                        staffId: active === "Staff" ? staffDetail?.id : undefined,
+                        wardCode: active === "Ward" ? wardCode : undefined,
+                        wardId: active === "Ward" ? resolvedWardId : undefined,
+                      },
+                    }),
+                  )
+                }
+              >
+                <Pencil data-icon="inline-start" />
+                Edit {active === "Reports" ? "Report" : "Record"}
+              </Button>
+            )}
           {(active === "Ward" || active === "Staff") && (
             <button
               className="danger-button"
@@ -781,7 +879,12 @@ export function RecordDetail({
         onUpdateContact={onUpdateContact}
         onDeleteContact={onDeleteContact}
       />
-      {active !== "School Performance" && (
+      {active !== "School Performance" && active === "Settings" && item === "Update" && selectedTab === "Overview" && (
+        <div className="profile-grid">
+          <SettingsUpdatePanel />
+        </div>
+      )}
+      {active !== "School Performance" && !(active === "Settings" && item === "Update" && selectedTab === "Overview") && (
         <div
           className={`profile-grid ${selectedTab === "Overview" ? "" : "enrollment-overview-hidden"}`}
         >

@@ -606,6 +606,14 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
           subCountiesById.get(ward.subCountyId)?.subCounty ?? null,
         isActive: ward.isActive,
       })),
+    auditLogRecords: auditRecords.map((record) => ({
+      id: record.id,
+      title: display(record.action),
+      schoolName: readAuditEntityName(record),
+      time: formatEastAfricaTime(record.createdAt),
+      entityType: display(record.entityType),
+      entityId: record.entityId ?? "",
+    })),
     moduleRecords: {
       Enrollment: [...new Set(enrollmentSnapshotRecords.map((record) =>
         schoolsById.get(record.schoolId)?.displayName ?? "",
@@ -617,13 +625,25 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
       Reports: reportTemplates.map((template) => template.title),
       "Data Quality": schools.map((school) => school.displayName),
       "Audit Logs": auditRecords.map(
-        (record) =>
-          `${display(record.action)} - ${readAuditEntityName(record)} - ${formatEastAfricaTime(record.createdAt)}`,
+        (record) => `${display(record.action)} - ${readAuditEntityName(record)}`,
       ),
       "School Performance": [...new Set(performanceRecords.map((record) => record.school))],
       "Users & Roles": [],
-      Settings: [],
-      "System Information": [],
+      Settings: [
+        "General",
+        "Appearance",
+        "Data & validation",
+        "Synchronization",
+        "Backup",
+        "Security",
+        "Update",
+      ],
+      "System Information": [
+        "Application Healthy",
+        "Local Database Healthy",
+        "Storage Healthy",
+        "Synchronization Healthy",
+      ],
       Backup: [],
       Exports: [],
     },

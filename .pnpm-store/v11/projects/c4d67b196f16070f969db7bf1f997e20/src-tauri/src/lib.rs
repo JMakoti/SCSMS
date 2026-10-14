@@ -10,8 +10,12 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Register plugins
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // Enable logging in development mode
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -20,6 +24,7 @@ pub fn run() {
                 )?;
             }
 
+            // Initialize SQLite database
             let handle = app.handle().clone();
 
             tauri::async_runtime::block_on(async move {
@@ -40,6 +45,7 @@ pub fn run() {
 
             Ok(())
         })
+        // Register application commands
         .invoke_handler(tauri::generate_handler![
             database::auth::login,
             run_sql,

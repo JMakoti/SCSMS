@@ -37,9 +37,20 @@ const moduleSeeders = {
   "Data Quality": { icon: "ClipboardCheck", desc: "Monitor completeness and accuracy of education records", action: "Review records" },
   "Audit Logs": { icon: "History", desc: "Track all changes made to education records and system settings", action: "Export Logs" },
   "Users & Roles": { icon: "UserCog", desc: "Manage system users, roles and access permissions", action: "Add User" },
-  Settings: { icon: "Settings", desc: "Configure application preferences, validation and security", action: "Save settings" },
-  "System Information": { icon: "Server", desc: "Application health, storage and system information", action: "Refresh status" },
+  Settings: { icon: "Settings", desc: "Configure application preferences, validation and security" },
+  "System Information": { icon: "Server", desc: "Application health, storage and system information" },
 } as const;
+
+const settingsDescriptions: Record<string, string> = {
+  General: "Core preferences, language and regional defaults",
+  Appearance: "Theme, density and display options",
+  "Data & validation": "Required fields and validation rules",
+  Synchronization: "Offline queue, sync interval and retry policy",
+  Backup: "Retention, snapshots and restore points",
+  Security: "Auth, roles and session controls",
+  Update: "Stay informed with the latest developments."
+};
+
 export function GenericPage({
   active,
   setActive,
@@ -62,7 +73,7 @@ export function GenericPage({
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [showWardModal, setShowWardModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { schools, staff, wards, moduleRecords, reportTemplates } =
+  const { schools, staff, wards, moduleRecords, reportTemplates, auditLogRecords } =
     useFeatureData();
   const icons = {
     BookOpen,
@@ -91,7 +102,7 @@ export function GenericPage({
     active === "Ward"
       ? (wardRecords ?? wards)
       : [];
-    
+
   const schoolRegistryItems =
     active === "Infrastructure" || active === "School Contacts" || active === "School Performance"
       ? [...schools]
@@ -99,18 +110,30 @@ export function GenericPage({
         .map((school) => school.displayName)
       : [];
 
+  const auditLogLabels = auditLogRecords.map((record) => record.id);
+  const auditLogById = new Map(auditLogRecords.map((record) => [record.id, record]));
   const moduleItems =
-    active === "Ward"
-      ? wardSummaries.map((ward) => ward.name)
-      : schoolRegistryItems.length
-        ? schoolRegistryItems
-        : (moduleRecords[active] ?? []);
+    active === "Audit Logs"
+      ? auditLogLabels
+      : active === "Ward"
+        ? wardSummaries.map((ward) => ward.name)
+        : schoolRegistryItems.length
+          ? schoolRegistryItems
+          : (moduleRecords[active] ?? []);
   const staffByName = new Map(staff.map((record) => [record.name, record]));
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredModuleItems = moduleItems
     .map((item, index) => ({ item, index }))
     .filter(({ item, index }) => {
       if (!normalizedQuery) return true;
+      if (active === "Audit Logs") {
+        const auditRecord = auditLogById.get(item);
+        const auditLabel = auditRecord ? `${auditRecord.title} - ${auditRecord.schoolName}` : item;
+        const auditDetails = auditRecord
+          ? `${auditRecord.title} ${auditRecord.schoolName} ${auditRecord.entityType} ${auditRecord.entityId} ${auditRecord.time}`
+          : "";
+        return `${auditLabel} ${auditDetails}`.toLowerCase().includes(normalizedQuery);
+      }
       const ward = active === "Ward" ? wardSummaries[index] : null;
       const staffRecord = active === "Staff" ? staffByName.get(item) : null;
       const details = ward
@@ -185,7 +208,7 @@ export function GenericPage({
               : active === "Audit Logs"
                 ? "Events in database"
                 : active === "Ward"
-                    ? "Wards in database"
+                  ? "Wards in database"
                   : "Records available locally"}
           </span>
         </div>
@@ -240,6 +263,8 @@ export function GenericPage({
           ) : filteredModuleItems.map(({ item, index: i }) => {
             const ward = active === "Ward" ? wardSummaries[i] : null;
             const staffRecord = active === "Staff" ? staffByName.get(item) : null;
+            const auditRecord = active === "Audit Logs" ? auditLogById.get(item) : null;
+            const auditLabel = auditRecord ? `${auditRecord.title} - ${auditRecord.schoolName}` : item;
 
             return (
               <div className="module-row" key={`${item}-${i}`}>
@@ -247,29 +272,43 @@ export function GenericPage({
                   <Icon />
                 </div>
                 <div className="row-main">
-                  <strong>{item}</strong>
+                  <strong>{active === "Audit Logs" ? auditLabel : item}</strong>
                   <span>
                     {active === "Reports"
                       ? "Official education management report"
                       : active === "System Information"
                         ? "Last checked 2 minutes ago"
-                        : active === "Ward"
-                          ? `${ward?.wardCode ? `Ward ${ward.wardCode} - ` : ""}${ward?.schoolCount ?? 0} schools - ${ward?.studentCount.toLocaleString() ?? 0} learners - ${ward?.teacherCount.toLocaleString() ?? 0} teachers`
-                          : active === "Staff"
-                            ? staffRecord?.assignedSchool || "School not assigned"
-                          : "Current database record"}
+                        : active === "Settings"
+                          ? `${settingsDescriptions[item] ?? "Configuration section"}`
+                          : active === "Audit Logs"
+                            ? auditRecord?.time ?? "Not available"
+                            : active === "Ward"
+                              ? `${ward?.wardCode ? `Ward ${ward.wardCode} - ` : ""}${ward?.schoolCount ?? 0} schools - ${ward?.studentCount.toLocaleString() ?? 0} learners - ${ward?.teacherCount.toLocaleString() ?? 0} teachers`
+                              : active === "Staff"
+                                ? staffRecord?.assignedSchool || "School not assigned"
+                                : "Current database record"}
                   </span>
                 </div>
                 {active === "System Information" ? (
-                  <span className="status-badge status-active">
-                    <span className="status-dot" />
-                    Healthy
-                  </span>
+                  <>
+                    <span className="status-badge status-active">
+                      <span className="status-dot" />
+                      Healthy
+                    </span>
+                    <button className="row-action" onClick={() => onDetail?.(item)}>
+                      View <ChevronRight />
+                    </button>
+                  </>
                 ) : active === "Data Quality" ? (
-                  <span className="status-badge status-warning">
-                    <span className="status-dot" />
-                    Needs review
-                  </span>
+                  <>
+                    <span className="status-badge status-warning">
+                      <span className="status-dot" />
+                      Needs review
+                    </span>
+                    <button className="row-action" onClick={() => onDetail?.(item)}>
+                      View <ChevronRight />
+                    </button>
+                  </>
                 ) : (
                   <button
                     className="row-action"
