@@ -27,6 +27,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAcademicYear } from "../academic-years/academic-year-context";
+import { getReportTemplates } from "../data/report-templates";
 import StatusBadge from "../ui/status-badge";
 import SchoolContactsContent from "../pages/contacts-page";
 import InfrastructureContent from "../pages/infrastructure-page";
@@ -738,7 +739,7 @@ function TrendsTab({ school }: { school: string }) {
 function ReportInformationTab({ report }: { report: string }) {
   const { academicYears, currentAcademicYear } = useAcademicYear();
   const featureData = useFeatureData();
-  const detail = featureData.reportTemplates.find(
+  const detail = getReportTemplates(featureData.reportTemplates).find(
     (template) => template.key === report || template.title === report,
   ) ?? {
     id: "",

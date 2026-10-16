@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@scsms/ui/components/button";
 import { AddWardDialog } from "../dialogs/ward-dialogs";
 import { useFeatureData, type WardSummary } from "../data/feature-data-context";
+import { getReportTemplates } from "../data/report-templates";
 import { addStaffSchema } from "../schemas/add-staff-schema";
 import type { AddStaffFormValues, AddWardFormValues } from "../types/forms";
 import {
@@ -26,6 +27,14 @@ import {
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import PageHeader from "../ui/page-header";
+
+// Restore the role catalogue when an app has no user/role records configured yet.
+const defaultUserRoles = [
+  "Education Officer",
+  "Data Entry Officer",
+  "County Administrator",
+  "Records Viewer",
+];
 
 const moduleSeeders = {
   Enrollment: { icon: "Users", desc: "Capture and review learner enrollment by school, grade and term", action: "Add Enrollment" },
@@ -73,8 +82,9 @@ export function GenericPage({
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [showWardModal, setShowWardModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { schools, staff, wards, moduleRecords, reportTemplates, auditLogRecords } =
+  const { schools, staff, wards, moduleRecords, reportTemplates: storedReportTemplates, auditLogRecords } =
     useFeatureData();
+  const reportTemplates = getReportTemplates(storedReportTemplates);
   const icons = {
     BookOpen,
     Building2,
@@ -112,8 +122,13 @@ export function GenericPage({
 
   const auditLogLabels = auditLogRecords.map((record) => record.id);
   const auditLogById = new Map(auditLogRecords.map((record) => [record.id, record]));
+  const userRoles = moduleRecords["Users & Roles"];
   const moduleItems =
-    active === "Audit Logs"
+    active === "Reports"
+      ? reportTemplates.map((report) => report.title)
+      : active === "Users & Roles"
+      ? userRoles?.length ? userRoles : defaultUserRoles
+      : active === "Audit Logs"
       ? auditLogLabels
       : active === "Ward"
         ? wardSummaries.map((ward) => ward.name)
@@ -209,6 +224,8 @@ export function GenericPage({
                 ? "Events in database"
                 : active === "Ward"
                   ? "Wards in database"
+                  : active === "Users & Roles"
+                    ? "User roles available"
                   : "Records available locally"}
           </span>
         </div>
@@ -286,6 +303,8 @@ export function GenericPage({
                               ? `${ward?.wardCode ? `Ward ${ward.wardCode} - ` : ""}${ward?.schoolCount ?? 0} schools - ${ward?.studentCount.toLocaleString() ?? 0} learners - ${ward?.teacherCount.toLocaleString() ?? 0} teachers`
                               : active === "Staff"
                                 ? staffRecord?.assignedSchool || "School not assigned"
+                                : active === "Users & Roles"
+                                  ? "User role"
                                 : "Current database record"}
                   </span>
                 </div>

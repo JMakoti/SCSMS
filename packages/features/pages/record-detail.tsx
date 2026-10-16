@@ -23,6 +23,7 @@ import { SettingsUpdatePanel } from "../updates/settings-update-panel";
 
 import { useAcademicYear } from "../academic-years/academic-year-context";
 import { useFeatureData } from "../data/feature-data-context";
+import { getReportTemplates } from "../data/report-templates";
 import type { WardDetailRecord } from "../data/feature-data-context";
 import { ConfirmDeleteDialog } from "../ui/confirm-delete-dialog";
 import StatusBadge from "../ui/status-badge";
@@ -163,7 +164,7 @@ export function RecordDetail({
   });
   const reportDetail =
     active === "Reports"
-      ? reportTemplates.find(
+      ? getReportTemplates(reportTemplates).find(
           (report) => report.key === item || report.title === item,
         )
       : null;
