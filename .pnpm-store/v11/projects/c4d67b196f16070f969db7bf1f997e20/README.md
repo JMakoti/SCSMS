@@ -63,13 +63,15 @@ scsms.db
 On startup, the Tauri backend:
 
 1. Creates the SQLite connection pool.
-2. Runs the initial schema migration.
+2. Runs all registered SQLite schema migrations.
 3. Seeds required initial records.
 4. Registers the database pool as Tauri managed state.
 
 Startup inserts the Rabai sub-county and administrator role/user only when they do not already exist. The web app's PostgreSQL database is separate and is not automatically copied into desktop SQLite.
 School creation writes through `repository/school.ts`; an optional logo selected in the desktop dialog is copied into the Tauri app-data `school-logos` directory, and only its managed file path is stored in the school's `logo_path`.
 Creating a school also initializes zero-count enrollment rows for each grade in its level across Terms 1-3 of the current academic year. If no academic year exists, the current calendar year is created and activated first.
+
+New generated SQLite migrations must be registered in `src-tauri/src/database/migrations.rs` with an embedded SQL constant, version, and application block. Rebuild/restart Tauri after native code or migration changes.
 
 ## 🛠️ Development
 
@@ -99,6 +101,8 @@ Run the Next.js frontend only:
 pnpm.cmd dev
 ```
 
+This starts a browser frontend without the Tauri database bridge. Use the native window for desktop sign-in and local records. Web and desktop both default to port 3000, so run them separately or adjust their configurations together.
+
 ## 📦 Build
 
 From `apps/desktop`:
@@ -116,11 +120,13 @@ The Tauri config uses:
 
 ## ✅ Verification
 
-Frontend checks:
+Frontend checks from `apps/desktop`:
 
 ```powershell
 pnpm.cmd build
 pnpm.cmd lint
+pnpm.cmd exec tsc --noEmit
+node --test tests/account-navigation.test.mjs tests/desktop-startup.test.mjs tests/desktop-updater.test.mjs
 ```
 
 Tauri backend checks from `apps/desktop/src-tauri`:
@@ -129,7 +135,27 @@ Tauri backend checks from `apps/desktop/src-tauri`:
 cargo fmt
 cargo check
 cargo clippy --all-targets -- -D warnings
+cargo test --lib
 ```
+
+## Accounts And Profile
+
+The initial email is `admin@scsms.go.ke`. Rust uses the process environment variable `SCSMS_ADMIN_PASSWORD` (at least 8 characters), falling back to `Admin@123` for an unseeded database. To set it before first startup, run these commands from the repository root:
+
+```powershell
+$env:SCSMS_ADMIN_PASSWORD = "replace-with-your-bootstrap-password"
+pnpm.cmd dev:desktop
+```
+
+The root `.env` is not automatically loaded into native Rust. Startup preserves an existing administrator and password, recognising the account by email or administrator role.
+
+After login, records and academic years load together with background retries and a plain loading message. Refresh failures keep the loaded dashboard visible.
+
+Users & Roles > Education Officer > My profile opens the current account. Other role catalogue entries are inactive. Name and phone are editable; email, assigned sub-county, and access role are read-only. Native account handlers enforce the email and sub-county restrictions.
+
+The password card requires the current password, a different new password, and matching confirmation. New passwords require at least 8 characters and at most 72 UTF-8 bytes; the backend stores a bcrypt hash. Log out is available directly at the far right of the topbar.
+
+Automatic updater checks default to off. Update preferences/history are stored separately from login state. See the [release workflow](../../.github/workflows/release.yml) and align the desktop package, Cargo, and Tauri versions before packaging.
 
 ## 🧭 Useful Routes
 
@@ -141,4 +167,4 @@ cargo clippy --all-targets -- -D warnings
 - ⚡ Use `pnpm.cmd` on PowerShell if the `pnpm.ps1` shim is blocked by execution policy.
 - 🔌 The app uses the custom Tauri `run_sql` command rather than `tauri-plugin-sql`.
 - 🧬 Keep database schema changes in sync with the shared `database/` package and generated SQLite migration SQL.
-- 💾 The desktop session helper currently stores the signed-in user in `localStorage`.
+- 💾 Desktop login identity stays in React and native in-memory state. Older saved-login data is cleared, and closing/reopening or reloading requires sign-in again.

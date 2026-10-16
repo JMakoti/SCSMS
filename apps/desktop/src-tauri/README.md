@@ -6,7 +6,9 @@ This folder contains the Rust backend for the SCSMS desktop app. The frontend is
 
 - Starts the desktop shell through Tauri 2.
 - Creates and owns a local SQLite connection pool.
-- Runs the initial SQLite schema migration.
+- Applies the registered SQLite schema migrations and seeds required initial records.
+- Maintains an in-memory authenticated account for profile and password commands.
+- Stores school logos in managed app-data storage and registers dialog, updater, and restart plugins.
 - Exposes a custom `run_sql` command used by Drizzle ORM in `sqlite-proxy` mode.
 
 ## Important Files
@@ -26,6 +28,7 @@ src-tauri/
       migrations.rs        Initial schema migration runner
       proxy.rs             Drizzle sqlite-proxy command implementation
       seed.rs              Idempotent initial data seeding
+      auth.rs              Native login/logout, profile, and password commands
       mod.rs               Database module exports
 ```
 
@@ -79,12 +82,25 @@ The migration runner:
 - Creates a local `__scsms_migrations` bookkeeping table.
 - Skips if the initial schema version is already recorded.
 - Records the initial migration if an existing `users` table is detected.
-- Applies the initial schema and later subject-combination, ward-geography, and ward-to-sub-county migrations for existing databases.
+- Applies the initial schema and later subject-combination, ward-geography, ward-to-sub-county, infrastructure-project-term, and school-cluster-level migrations.
 - Splits each migration on Drizzle's statement breakpoint marker.
+
+After generating SQLite SQL, add an `include_str!` constant, a new version constant, and a `run_migrations` application/recording block in `src/database/migrations.rs`. Generating SQL alone does not register it for desktop startup.
+
+## Account Commands
+
+- `login`: verifies an active account and sets its ID in native in-memory state.
+- `logout`: clears the native account session.
+- `update_account_profile`: updates the signed-in account name and phone. Email and sub-county changes are rejected, and both columns are omitted from update SQL.
+- `change_account_password`: verifies the current password and matching confirmation before storing a replacement bcrypt hash.
+
+Account commands resolve the target from native session state. New passwords must be different, contain at least 8 characters, and fit within 72 UTF-8 bytes. Hashing runs off the async worker; a conditional update guards against a concurrent password change. Login state is cleared when a fresh frontend shell mounts or the user logs out.
+
+The registered `store_school_logo` and `resolve_school_logo_path` commands manage school logos separately from the SQL proxy.
 
 ## Initial records
 
-`src/database/seed.rs` creates the required Rabai sub-county, administrator role, and `admin@scsms.go.ke` user when they are missing. Ward records are not seeded; create them manually from the Ward page. The password uses `SCSMS_ADMIN_PASSWORD` when configured or falls back to `Admin@123`. The web app uses its own PostgreSQL database; the PostgreSQL seed command does not populate desktop SQLite.
+`src/database/seed.rs` creates the required Rabai sub-county, administrator role, and `admin@scsms.go.ke` user when they are missing. Ward records are not seeded; create them manually from the Ward page. The password uses the process environment variable `SCSMS_ADMIN_PASSWORD` when configured or falls back to `Admin@123`. Rust does not automatically load the root `.env`. Existing administrators are recognised by email or administrator role, and their passwords are preserved. The web app uses its own PostgreSQL database; the PostgreSQL seed command does not populate desktop SQLite.
 
 ## Commands
 
@@ -94,7 +110,10 @@ Run these from `apps/desktop/src-tauri`.
 cargo fmt
 cargo check
 cargo clippy --all-targets -- -D warnings
+cargo test --lib
 ```
+
+The native database tests use in-memory SQLite pools to check account scoping, locked email/sub-county fields, password verification/hashing, and startup seed behaviour.
 
 Run the desktop app from the repository root:
 
@@ -111,5 +130,5 @@ pnpm.cmd tauri:dev
 ## Notes
 
 - The app does not use `tauri-plugin-sql`; database access goes through the custom `run_sql` command.
-- `capabilities/default.json` currently grants only `core:default`.
+- `capabilities/default.json` grants `core:default`, `dialog:allow-open`, `updater:default`, and `process:allow-restart`.
 - The `run_sql` command is intentionally powerful because it is the bridge Drizzle uses to access SQLite. Keep frontend code trusted and avoid exposing arbitrary user-written SQL.

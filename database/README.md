@@ -66,6 +66,8 @@ SQLite schemas are maintained for the desktop/local database.
 
 The desktop app does not currently use `src/sqlite.ts`. Instead, it imports the SQLite schema from this package and runs queries through Tauri's custom Drizzle `sqlite-proxy` backend.
 
+The SQLite Drizzle config targets `./scsms.db` in this package. Tauri opens `sqlite:scsms.db` relative to its backend working directory. Check the actual file before using push, migrate, or Studio: package SQLite commands do not automatically operate on the running desktop database.
+
 ## Environment
 
 The seed runner loads environment variables from the repository root:
@@ -77,8 +79,8 @@ school_management/.env
 Required values:
 
 ```env
-DATABASE_URL=postgresql://postgres:root@localhost:5432/scsmsdb
-SCSMS_ADMIN_PASSWORD=Admin@123
+DATABASE_URL=postgresql://username:password@localhost:5432/scsms
+SCSMS_ADMIN_PASSWORD=replace-with-your-bootstrap-password
 SCSMS_SESSION_SECRET=replace-with-a-random-secret-of-at-least-32-characters
 ```
 
@@ -136,7 +138,7 @@ Email: admin@scsms.go.ke
 Password: value of SCSMS_ADMIN_PASSWORD
 ```
 
-The seed is idempotent. Re-running it skips existing rows instead of creating duplicates.
+The seed is idempotent. Existing administrator accounts are recognised by email or administrator role, and their credentials are preserved. Desktop startup performs its own independent Rust seed.
 
 ## Schema Areas
 
@@ -192,13 +194,36 @@ pnpm.cmd --filter @scsms/db db:seed
 pnpm.cmd --filter @scsms/db db:generate:sqlite
 ```
 
-After regenerating SQLite migrations, verify the desktop Tauri migration loader still points at the expected SQL file in `apps/desktop/src-tauri/src/database/migrations.rs`.
+After generating SQLite migrations, edit `apps/desktop/src-tauri/src/database/migrations.rs`:
+
+1. Add an `include_str!` constant for the new SQL file.
+2. Assign a new migration version.
+3. Add a `run_migrations` block that applies and records it.
+4. Rebuild/restart Tauri to apply the migration.
+
+Generating SQL alone does not make the desktop app run it. The runner records versions in `__scsms_migrations`.
 
 ### Open Drizzle Studio
 
 ```powershell
 pnpm.cmd --filter @scsms/db db:studio:postgres
 pnpm.cmd --filter @scsms/db db:studio:sqlite
+```
+
+## Account Data And Verification
+
+The existing user schemas store name, email, phone, sub-county, status, and password hashes. Profile handlers update name and phone while enforcing read-only email and sub-county. Password changes use separate authenticated handlers and bcrypt hashes.
+
+There is no database package test runner. From the repository root, run the web account and PostgreSQL seed regression tests:
+
+```powershell
+node --test apps/web/tests/account-api.test.mjs
+```
+
+From `apps/desktop/src-tauri`, run native database/account tests against in-memory SQLite:
+
+```powershell
+cargo test --lib database::
 ```
 
 ## PowerShell Note
@@ -214,5 +239,4 @@ pnpm.cmd --filter @scsms/db db:seed
 - `DATABASE_URL is not defined`: add `DATABASE_URL` to the root `.env`.
 - `SCSMS_ADMIN_PASSWORD environment variable is required`: add `SCSMS_ADMIN_PASSWORD` to the root `.env`.
 - Password length error: use at least 8 characters.
-- Seed command prints only the command and no seed logs: check that `src/seed/index.ts` contains live code and is not commented out.
 - Desktop data missing: the desktop app uses its own local SQLite database through Tauri; package `db:seed` seeds PostgreSQL, not the desktop SQLite file.
