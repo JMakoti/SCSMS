@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.0"
+version = "1.0.0"
 description = "SCSMS Desktop Application"
 authors = ["you"]
 license = ""
@@ -27,5 +27,5 @@ sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "sqlite"] }
 bcrypt = "0.17"
 uuid = { version = "1", features = ["v4"] }
 tauri-plugin-dialog = "2.7.3"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
+tauri-plugin-updater = "2.14.0"
+tauri-plugin-process = "2.4.0"
