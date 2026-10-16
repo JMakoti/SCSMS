@@ -80,7 +80,7 @@ export async function getAuthenticatedUser() {
   if (!claims) return null;
 
   const [user] = await db
-    .select({ id: users.id, email: users.email, name: users.name })
+    .select({ id: users.id, email: users.email, name: users.name, subcountyId: users.subcountyId })
     .from(users)
     .where(and(eq(users.id, claims.userId), eq(users.status, "active")))
     .limit(1);

@@ -593,6 +593,8 @@ export async function loadDesktopFeatureData(
     })),
     schoolHistoryActivities,
     profile: {
+      name: currentUser?.name ?? "",
+      subcountyId: currentUser?.subcountyId ?? "",
       email: currentUser?.email ?? userEmail,
       phone: currentUser?.phone ?? "",
       department: role?.name ?? "",

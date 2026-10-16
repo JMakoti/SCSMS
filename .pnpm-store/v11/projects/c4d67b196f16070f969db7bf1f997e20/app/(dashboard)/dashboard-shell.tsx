@@ -20,7 +20,7 @@ import {
   createAcademicYear,
   setCurrentAcademicYear,
 } from "@/repository/academic-year";
-import { loginWithLocalAccount } from "@/repository/auth";
+import { loginWithLocalAccount, logoutLocalAccount } from "@/repository/auth";
 import {
   createSchool,
   updateSchool,
@@ -65,6 +65,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     clearSessionUser();
+    void logoutLocalAccount().catch((error) => console.error("Failed to clear desktop session", error));
   }, []);
 
   useEffect(() => {
@@ -110,9 +111,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    void logoutLocalAccount().catch((error) => console.error("Failed to clear desktop session", error));
     clearSessionUser();
     setSessionUser(null);
   };
+
+  useEffect(() => {
+    const updateAccount = (event: Event) => {
+      const profile = (event as CustomEvent<{ name: string; email: string }>).detail;
+      setSessionUser((current) => current ? { ...current, name: profile.name, email: profile.email } : null);
+    };
+    window.addEventListener("scsms:account-updated", updateAccount);
+    return () => window.removeEventListener("scsms:account-updated", updateAccount);
+  }, []);
 
   const persistAcademicYearTransition = async ({
     closingYear,
@@ -155,7 +166,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     <FeatureDataBoundary
       key={sessionKey}
       userEmail={sessionUser.email}
-      onLogout={logout}
       onSetCurrentAcademicYear={setCurrentAcademicYear}
       onTransitionAcademicYear={persistAcademicYearTransition}
     >
@@ -180,9 +190,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             onSync={() => router.push("/synchronization")}
             dark={dark}
             onTheme={toggleTheme}
-            user={sessionUser}
             onMenu={() => setMobileNavPath(pathname)}
-            onProfile={() => router.push("/profile")}
             onLogout={logout}
           />
           {children}

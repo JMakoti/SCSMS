@@ -10,6 +10,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(database::auth::AccountSession::default())
         // Register plugins
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -48,6 +49,9 @@ pub fn run() {
         // Register application commands
         .invoke_handler(tauri::generate_handler![
             database::auth::login,
+            database::auth::logout,
+            database::auth::update_account_profile,
+            database::auth::change_account_password,
             run_sql,
             database::seed::seed_database,
             file_storage::store_school_logo,

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 
 import { db } from "../postgres";
 import { subcounty } from "../postgress-schemas/subcounty_ward";
@@ -51,11 +51,11 @@ export async function seedAdministrator() {
   const existingAdmin = await db
     .select()
     .from(users)
-    .where(eq(users.email, ADMIN_EMAIL))
+    .where(or(eq(users.email, ADMIN_EMAIL), eq(users.roleId, role.id)))
     .limit(1);
 
   if (existingAdmin[0]) {
-    console.log(`${ADMIN_EMAIL} already exists - skipping`);
+    console.log("Administrator account already exists - skipping");
     return;
   }
 

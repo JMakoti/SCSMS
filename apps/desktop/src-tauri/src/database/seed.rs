@@ -124,11 +124,12 @@ async fn seed_administrator(pool: &SqlitePool) -> Result<(), String> {
         r#"
         SELECT id
         FROM users
-        WHERE email = ?
+        WHERE email = ? OR role_id = ?
         LIMIT 1
         "#,
     )
     .bind(ADMIN_EMAIL)
+    .bind(&role_id)
     .fetch_optional(pool)
     .await
     .map_err(|error| format!("Failed to check administrator account: {error}"))?;
@@ -166,4 +167,49 @@ async fn seed_administrator(pool: &SqlitePool) -> Result<(), String> {
     .map_err(|error| format!("Failed to create administrator: {error}"))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn startup_preserves_an_administrator_with_an_updated_email() {
+        tauri::async_runtime::block_on(async {
+            let pool = sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect("sqlite::memory:")
+                .await
+                .unwrap();
+            sqlx::query("CREATE TABLE roles (id TEXT PRIMARY KEY, name TEXT)")
+                .execute(&pool)
+                .await
+                .unwrap();
+            sqlx::query("CREATE TABLE subcounty (id TEXT PRIMARY KEY, sub_county_code TEXT, is_active INTEGER)").execute(&pool).await.unwrap();
+            sqlx::query("CREATE TABLE users (id TEXT PRIMARY KEY, role_id TEXT, email TEXT)")
+                .execute(&pool)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO roles VALUES ('admin-role', 'administrator')")
+                .execute(&pool)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO subcounty VALUES ('area', '00301', 1)")
+                .execute(&pool)
+                .await
+                .unwrap();
+            sqlx::query(
+                "INSERT INTO users VALUES ('officer', 'admin-role', 'updated@example.com')",
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+            seed_initial_data(&pool).await.unwrap();
+            let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(count, 1);
+        });
+    }
 }

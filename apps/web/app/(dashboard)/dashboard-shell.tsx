@@ -234,9 +234,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             onSync={() => router.push("/synchronization")}
             dark={dark}
             onTheme={toggleTheme}
-            user={sessionUser}
             onMenu={() => setMobileNavPath(pathname)}
-            onProfile={() => router.push("/profile")}
             onLogout={logout}
           />
           {authError && (

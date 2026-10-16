@@ -578,6 +578,8 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
     })),
     schoolHistoryActivities,
     profile: {
+      name: currentUser?.name ?? "",
+      subcountyId: currentUser?.subcountyId ?? "",
       email: currentUser?.email ?? "",
       phone: currentUser?.phone ?? "",
       department: role?.name ?? "",

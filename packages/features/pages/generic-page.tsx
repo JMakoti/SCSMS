@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@scsms/ui/components/button";
 import { AddWardDialog } from "../dialogs/ward-dialogs";
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import PageHeader from "../ui/page-header";
+import { StatusBadge } from "../ui/status-badge";
 
 // Restore the role catalogue when an app has no user/role records configured yet.
 const defaultUserRoles = [
@@ -79,10 +81,11 @@ export function GenericPage({
   wardLoading?: boolean;
   wardLoadError?: string;
 }) {
+  const router = useRouter();
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [showWardModal, setShowWardModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const { schools, staff, wards, moduleRecords, reportTemplates: storedReportTemplates, auditLogRecords } =
+  const { schools, staff, wards, moduleRecords, profile, reportTemplates: storedReportTemplates, auditLogRecords } =
     useFeatureData();
   const reportTemplates = getReportTemplates(storedReportTemplates);
   const icons = {
@@ -127,7 +130,7 @@ export function GenericPage({
     active === "Reports"
       ? reportTemplates.map((report) => report.title)
       : active === "Users & Roles"
-      ? userRoles?.length ? userRoles : defaultUserRoles
+      ? [...new Set(["Education Officer", ...(userRoles?.length ? userRoles : defaultUserRoles)])]
       : active === "Audit Logs"
       ? auditLogLabels
       : active === "Ward"
@@ -181,7 +184,7 @@ export function GenericPage({
               <Plus data-icon="inline-start" />
               Add Ward Record
             </Button>
-          ) : (
+          ) : active === "Users & Roles" ? undefined : (
             <Button>
               <Plus data-icon="inline-start" />
               {c.action}
@@ -215,7 +218,7 @@ export function GenericPage({
                   ? String(reportTemplates.length)
                   : active === "Ward"
                     ? String(wardSummaries.length)
-                    : "Active module"}
+                    : active === "Users & Roles" ? "1 active role" : "Active module"}
           </strong>
           <span>
             {active === "Data Quality"
@@ -225,7 +228,7 @@ export function GenericPage({
                 : active === "Ward"
                   ? "Wards in database"
                   : active === "Users & Roles"
-                    ? "User roles available"
+                    ? "Education Officer — signed-in account"
                   : "Records available locally"}
           </span>
         </div>
@@ -304,11 +307,24 @@ export function GenericPage({
                               : active === "Staff"
                                 ? staffRecord?.assignedSchool || "School not assigned"
                                 : active === "Users & Roles"
-                                  ? "User role"
+                                  ? item === "Education Officer" ? profile.email : "Inactive role"
                                 : "Current database record"}
                   </span>
                 </div>
-                {active === "System Information" ? (
+                {active === "Users & Roles" ? (
+                  <>
+                    <StatusBadge status={item === "Education Officer" ? "Active" : "Inactive"} />
+                    <button
+                      className="row-action"
+                      type="button"
+                      disabled={item !== "Education Officer"}
+                      onClick={() => router.push("/profile")}
+                    >
+                      {item === "Education Officer" ? "My profile" : "Unavailable"}
+                      <ChevronRight />
+                    </button>
+                  </>
+                ) : active === "System Information" ? (
                   <>
                     <span className="status-badge status-active">
                       <span className="status-dot" />

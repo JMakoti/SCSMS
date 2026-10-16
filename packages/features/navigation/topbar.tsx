@@ -3,10 +3,8 @@
 import {
   Bell,
   ChevronDown,
-  Lock,
   Menu,
   Search,
-  Settings,
   Sun,
   Moon,
   LogOut,
@@ -16,11 +14,6 @@ export function Topbar({
   onSync,
   dark,
   onTheme,
-  user,
-  onProfile = () => {
-    window.location.hash = "profile";
-    window.dispatchEvent(new Event("scsms-profile"));
-  },
   onMenu,
   onLogout,
 }: {
@@ -28,19 +21,9 @@ export function Topbar({
   onSync: () => void;
   dark: boolean;
   onTheme: () => void;
-  user: { email: string };
-  onProfile?: () => void;
   onMenu?: () => void;
-  onLogout?: () => void;
+  onLogout: () => void;
 }) {
-  const emailName = user.email.split("@")[0] ?? "user";
-  const displayName = emailName
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-  const initials = emailName.slice(0, 2).toUpperCase();
-
   return (
     <header className="topbar">
       <button
@@ -76,35 +59,15 @@ export function Topbar({
           <Bell />
           <span>3</span>
         </button>
-        <div className="user-menu">
-          <button
-            className="user-trigger"
-            type="button"
-            aria-label="Open profile"
-          >
-            <div className="avatar">{initials}</div>
-            <div className="user-copy">
-              <strong>{displayName}</strong>
-              <small>{user.email}</small>
-            </div>
-            <ChevronDown />
-          </button>
-          <div className="user-dropdown">
-            <div className="profile-menu-head">
-              <strong>{displayName}</strong>
-              <span>{user.email}</span>
-            </div>
-            <button onClick={onProfile}>
-              <Settings /> Settings
-            </button>
-            <button type="button">
-              <Lock /> Lock Application
-            </button>
-            <button onClick={onLogout} type="button">
-              <LogOut /> Sign Out
-            </button>
-          </div>
-        </div>
+        <button
+          className="outline-button topbar-logout"
+          type="button"
+          onClick={onLogout}
+          aria-label="Log out"
+        >
+          <LogOut size={16} aria-hidden="true" />
+          Log out
+        </button>
       </div>
     </header>
   );

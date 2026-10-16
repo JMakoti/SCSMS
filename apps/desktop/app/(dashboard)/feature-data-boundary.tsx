@@ -12,13 +12,11 @@ import { loadDesktopFeatureData } from "@/lib/feature-data";
 export function FeatureDataBoundary({
   children,
   userEmail,
-  onLogout,
   onSetCurrentAcademicYear,
   onTransitionAcademicYear,
 }: {
   children: ReactNode;
   userEmail: string;
-  onLogout: () => void;
 } & Pick<
   ComponentProps<typeof AcademicYearProvider>,
   "onSetCurrentAcademicYear" | "onTransitionAcademicYear"
@@ -73,24 +71,19 @@ export function FeatureDataBoundary({
 
   if (!data) {
     return (
-      <main className="auth-page">
-        <section className="login-card">
-          <p role="status">
-            {error || "Preparing your school records..."}
-          </p>
-          {error && (
-            <button
-              className="modal-primary-button"
-              type="button"
-              onClick={() => setReloadKey((key) => key + 1)}
-            >
-              Retry now
-            </button>
-          )}
-          <button className="outline-button" type="button" onClick={onLogout}>
-            Back to sign in
+      <main className="content" aria-busy="true">
+        <p role="status">
+          {error || "Loading dashboard..."}
+        </p>
+        {error && (
+          <button
+            className="modal-primary-button"
+            type="button"
+            onClick={() => setReloadKey((key) => key + 1)}
+          >
+            Retry now
           </button>
-        </section>
+        )}
       </main>
     );
   }

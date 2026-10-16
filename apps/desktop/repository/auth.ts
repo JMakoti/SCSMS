@@ -15,3 +15,7 @@ export async function loginWithLocalAccount(values: LoginFormValues) {
     },
   });
 }
+
+export async function logoutLocalAccount() {
+  if (isTauri()) await invoke("logout");
+}

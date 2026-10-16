@@ -51,7 +51,9 @@ test("desktop login lasts only until the shell is closed", () => {
     modules["react/jsx-runtime"] = { jsx, jsxs: jsx, Fragment: "fragment" };
     modules["next/navigation"] = { useRouter: () => ({}), usePathname: () => "/" };
     modules["../session-user"] = session;
+    modules["@/repository/auth"] = { logoutLocalAccount: async () => {} };
     modules["./feature-data-boundary"] = { FeatureDataBoundary: "dashboard" };
+    modules["@scsms/features/navigation/topbar"] = { default: "topbar" };
     modules["@scsms/features/auth/login-page"] = { LoginPage: "login" };
     const { DashboardShell } = compile(path, modules, {
       localStorage: storage,
@@ -72,7 +74,16 @@ test("desktop login lasts only until the shell is closed", () => {
   assert.equal(tree.type, "dashboard");
   assert.equal(render().type, "dashboard");
   assert.equal(openApp()().props.children[0].type, "login");
-  tree.props.onLogout();
+  function findTopbar(node) {
+    if (!node || typeof node !== "object") return null;
+    if (node.type === "topbar") return node;
+    for (const child of [].concat(node.props?.children ?? [])) {
+      const result = findTopbar(child);
+      if (result) return result;
+    }
+    return null;
+  }
+  findTopbar(tree).props.onLogout();
   assert.equal(render().props.children[0].type, "login");
   assert.equal(reads, 0);
   assert.equal(writes, 0);
@@ -133,7 +144,7 @@ function boundaryHarness(loader) {
       removeEventListener: (name) => listeners.delete(name),
     },
   });
-  const props = { userEmail: "admin@example.com", children: "dashboard", onLogout() {} };
+  const props = { userEmail: "admin@example.com", children: "dashboard" };
   return {
     timers,
     render() {
@@ -167,6 +178,8 @@ test("startup retries a temporary database failure and supplies persisted academ
   await flush();
   const pending = app.render();
   assert.equal(pending.type, "main");
+  assert.equal(pending.props.className, "content");
+  assert.doesNotMatch(JSON.stringify(pending), /login-card|Back to sign in/);
   assert.doesNotMatch(JSON.stringify(pending), /Failed query/);
   assert.equal(app.timers.size, 1);
   app.retry();

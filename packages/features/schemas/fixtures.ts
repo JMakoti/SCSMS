@@ -148,6 +148,8 @@ export const enrollmentGradeRowSchema = z.tuple([
 export const profileDetailSchema = z.tuple([z.string(), z.string()]);
 
 export const profileDefaultsSchema = z.object({
+  name: z.string().optional(),
+  subcountyId: z.string().optional(),
   email: z.string().email(),
   phone: z.string(),
   department: z.string(),
