@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { AcademicYearProvider } from "@scsms/features/academic-years/academic-year-context";
 import {
   FeatureDataProvider,
   type FeatureData,
@@ -11,10 +12,17 @@ import { loadDesktopFeatureData } from "@/lib/feature-data";
 export function FeatureDataBoundary({
   children,
   userEmail,
+  onLogout,
+  onSetCurrentAcademicYear,
+  onTransitionAcademicYear,
 }: {
   children: ReactNode;
   userEmail: string;
-}) {
+  onLogout: () => void;
+} & Pick<
+  ComponentProps<typeof AcademicYearProvider>,
+  "onSetCurrentAcademicYear" | "onTransitionAcademicYear"
+>) {
   const pathname = usePathname();
   const [data, setData] = useState<FeatureData | null>(null);
   const [error, setError] = useState("");
@@ -23,62 +31,88 @@ export function FeatureDataBoundary({
   useEffect(() => {
     const refreshFeatureData = () => setReloadKey((key) => key + 1);
     window.addEventListener("scsms:feature-data-refresh", refreshFeatureData);
-    return () =>
+    window.addEventListener("scsms:academic-years-refresh", refreshFeatureData);
+    return () => {
       window.removeEventListener(
         "scsms:feature-data-refresh",
         refreshFeatureData,
       );
+      window.removeEventListener("scsms:academic-years-refresh", refreshFeatureData);
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    setError("");
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let retryDelay = 1_000;
 
-    loadDesktopFeatureData(userEmail)
-      .then((featureData) => {
-        if (!cancelled) setData(featureData);
-      })
-      .catch((loadError: unknown) => {
+    const load = async () => {
+      try {
+        const featureData = await loadDesktopFeatureData(userEmail);
         if (cancelled) return;
+        setData(featureData);
+        setError("");
+      } catch (loadError) {
+        if (cancelled) return;
+        console.error("Failed to load desktop records", loadError);
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Database records could not be loaded.",
+          "School records could not be loaded. Retrying in the background.",
         );
-      });
+        retryTimer = setTimeout(() => void load(), retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30_000);
+      }
+    };
+
+    void load();
 
     return () => {
       cancelled = true;
+      clearTimeout(retryTimer);
     };
   }, [pathname, reloadKey, userEmail]);
 
-  if (error) {
+  if (!data) {
     return (
       <main className="auth-page">
         <section className="login-card">
-          <h1>Database records unavailable</h1>
-          <p role="alert">{error}</p>
-          <button
-            className="modal-primary-button"
-            type="button"
-            onClick={() => setReloadKey((key) => key + 1)}
-          >
-            Retry
+          <p role="status">
+            {error || "Preparing your school records..."}
+          </p>
+          {error && (
+            <button
+              className="modal-primary-button"
+              type="button"
+              onClick={() => setReloadKey((key) => key + 1)}
+            >
+              Retry now
+            </button>
+          )}
+          <button className="outline-button" type="button" onClick={onLogout}>
+            Back to sign in
           </button>
         </section>
       </main>
     );
   }
 
-  if (!data) {
-    return (
-      <main className="auth-page">
-        <section className="login-card">
-          <p>Loading records from the local database...</p>
-        </section>
-      </main>
-    );
-  }
-
-  return <FeatureDataProvider data={data}>{children}</FeatureDataProvider>;
+  return (
+    <FeatureDataProvider data={data}>
+      <AcademicYearProvider
+        initialAcademicYears={data.academicYears}
+        initialCurrentAcademicYearId={
+          data.academicYears.find((year) => year.isActive)?.id ??
+          data.academicYears[0]?.id
+        }
+        onSetCurrentAcademicYear={onSetCurrentAcademicYear}
+        onTransitionAcademicYear={onTransitionAcademicYear}
+      >
+        {error && (
+          <p role="status">
+            School records could not be refreshed. Retrying in the background.
+          </p>
+        )}
+        {children}
+      </AcademicYearProvider>
+    </FeatureDataProvider>
+  );
 }

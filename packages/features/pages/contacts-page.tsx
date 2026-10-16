@@ -78,7 +78,7 @@ export function LegacyAddContactDialog({
     }
   };
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay">
       <div
         className="form-dialog contact-modal"
         role="dialog"
@@ -249,19 +249,19 @@ function SchoolContactsContent({
           onConfirm={async () => {
             if (!onDeleteContact) {
               setDeleteError("Contact deletion is not configured.");
-              return;
+              return false;
             }
             setDeleteError("");
             try {
               await onDeleteContact(deleteItem.id);
               window.dispatchEvent(new Event("scsms:feature-data-refresh"));
-              setDeleteItem(null);
             } catch (error) {
               setDeleteError(
                 error instanceof Error
                   ? error.message
                   : "The contact could not be deleted.",
               );
+              return false;
             }
           }}
           error={deleteError}

@@ -286,7 +286,7 @@ function SubjectCombinationsContent({
   return (
     <section className="panel table-panel subject-combinations-panel">
       {showAddModal && (
-        <div className="overlay" onClick={() => setShowAddModal(false)}>
+        <div className="overlay">
           <div
             className="form-dialog"
             onClick={(event) => event.stopPropagation()}
@@ -809,6 +809,8 @@ export function SchoolProfile({
               throw new Error("School deletion is not configured for this app.");
             }
             await onDeleteSchool(school.id);
+          }}
+          onComplete={() => {
             window.dispatchEvent(new Event("scsms:feature-data-refresh"));
             onBack();
           }}

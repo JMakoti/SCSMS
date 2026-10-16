@@ -36,7 +36,6 @@ export default function WardDetailRoutePage({ item }: { item: string }) {
           : "Unable to delete the ward.",
       );
     }
-    window.dispatchEvent(new Event("scsms:feature-data-refresh"));
   };
 
   return (

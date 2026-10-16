@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { createPortal } from "react-dom";
@@ -13,12 +13,14 @@ export function ConfirmDeleteDialog({
   confirmCode = item,
   onCancel,
   onConfirm,
+  onComplete,
   error,
 }: {
   item: string;
   confirmCode?: string;
   onCancel: () => void;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: () => void | false | Promise<void | false>;
+  onComplete?: () => void;
   error?: string;
 }) {
   const deleteConfirmationSchema = useMemo(
@@ -43,7 +45,11 @@ export function ConfirmDeleteDialog({
     setDeleteError("");
     setIsDeleting(true);
     try {
-      await onConfirm();
+      const result = await onConfirm();
+      if (result !== false) {
+        onCancel();
+        onComplete?.();
+      }
     } catch (confirmError) {
       setDeleteError(
         confirmError instanceof Error
@@ -79,10 +85,6 @@ export function ConfirmDeleteDialog({
       className={`confirm-delete-backdrop${isDarkMode ? " is-dark" : ""}`}
       onCancel={(event) => {
         event.preventDefault();
-        onCancel();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onCancel();
       }}
     >
       <div
@@ -101,6 +103,15 @@ export function ConfirmDeleteDialog({
               continue.
             </p>
           </div>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close delete confirmation"
+            disabled={isDeleting}
+            onClick={onCancel}
+          >
+            <X />
+          </button>
         </div>
         <div className="confirm-delete-code">
           <span>
@@ -126,6 +137,7 @@ export function ConfirmDeleteDialog({
             <button
               type="button"
               className="confirm-delete-cancel"
+              disabled={isDeleting}
               onClick={onCancel}
             >
               Cancel

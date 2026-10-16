@@ -479,32 +479,31 @@ export function RecordDetail({
         setDeleteError(
           "This staff member cannot be deleted because its database record is unavailable.",
         );
-        return;
+        return false;
       }
       try {
         await onDeleteStaff(staffDetail.id);
-        window.dispatchEvent(new Event("scsms:feature-data-refresh"));
-        onBack();
       } catch (error) {
         setDeleteError(
           error instanceof Error
             ? error.message
             : "Unable to delete the staff member.",
         );
+        return false;
       }
       return;
     }
     if (!onDeleteWard) {
-      onBack();
-      return;
+      setDeleteError("Ward deletion is not configured.");
+      return false;
     }
     try {
       await onDeleteWard();
-      onBack();
     } catch (error) {
       setDeleteError(
         error instanceof Error ? error.message : "Unable to delete the ward.",
       );
+      return false;
     }
   };
 
@@ -516,11 +515,15 @@ export function RecordDetail({
           confirmCode={active === "Ward" ? wardCode : item}
           onCancel={() => setShowDeleteModal(false)}
           onConfirm={confirmDelete}
+          onComplete={() => {
+            window.dispatchEvent(new Event("scsms:feature-data-refresh"));
+            onBack();
+          }}
           error={deleteError}
         />
       )}
       {showPerformanceModal && (
-        <div className="overlay" onClick={() => setShowPerformanceModal(false)}>
+        <div className="overlay">
           <div
             className="form-dialog performance-form-dialog"
             onClick={(event) => event.stopPropagation()}
@@ -535,6 +538,7 @@ export function RecordDetail({
                 className="icon-button"
                 type="button"
                 onClick={() => setShowPerformanceModal(false)}
+                aria-label="Close performance details form"
               >
                 <X />
               </button>

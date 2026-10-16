@@ -130,7 +130,7 @@ export function AddInfrastructureDialog({
     }
   };
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay">
       <div className="form-dialog" onClick={(event) => event.stopPropagation()}>
         <div className="dialog-head">
           <div>

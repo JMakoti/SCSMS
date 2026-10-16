@@ -34,7 +34,7 @@ export function AddContactDialog({ onClose }: { onClose: () => void }) {
     },
   });
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay">
       <div className="form-dialog" onClick={(event) => event.stopPropagation()}>
         <div className="dialog-head">
           <div>
@@ -196,6 +196,7 @@ export function AddSchoolDialog({
       },
     });
   const selectedFilePath = watch("filePath");
+  const selectedLevel = watch("level");
 
   const saveSchool = async (values: AddSchoolFormValues) => {
     setSaveError("");
@@ -233,7 +234,7 @@ export function AddSchoolDialog({
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay">
       <div className="form-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-head">
           <div>
@@ -376,15 +377,17 @@ export function AddSchoolDialog({
                     ))}
                   </select>
                 </label>
-                <label>
-                  Cluster level
-                  <select {...register("clusterLevel")}>
-                    <option value="1">Cluster 1</option>
-                    <option value="2">Cluster 2</option>
-                    <option value="3">Cluster 3</option>
-                    <option value="4">Cluster 4</option>
-                  </select>
-                </label>
+                {selectedLevel === "Senior_School" && (
+                  <label>
+                    Cluster level
+                    <select {...register("clusterLevel")}>
+                      <option value="1">Cluster 1</option>
+                      <option value="2">Cluster 2</option>
+                      <option value="3">Cluster 3</option>
+                      <option value="4">Cluster 4</option>
+                    </select>
+                  </label>
+                )}
                 <label>
                   Gender
                   <select {...register("genderType")}>

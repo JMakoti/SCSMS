@@ -8853,6 +8853,15 @@ dialog.confirm-delete-backdrop::backdrop {
   gap: 12px;
 }
 
+.confirm-delete-heading > div:last-of-type {
+  flex: 1;
+  min-width: 0;
+}
+
+.confirm-delete-heading > .icon-button {
+  flex-shrink: 0;
+}
+
 .confirm-delete-icon {
   display: grid;
   width: 40px;

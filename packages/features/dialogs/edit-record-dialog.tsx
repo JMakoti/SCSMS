@@ -612,7 +612,7 @@ export function EditRecordDialog({
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay">
       <div className="form-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-head">
           <div>

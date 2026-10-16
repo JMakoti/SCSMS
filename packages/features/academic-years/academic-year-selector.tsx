@@ -147,7 +147,7 @@ export function AcademicYearSelector({
       </button>
 
       {transitionOpen && (
-        <div className="overlay" onClick={() => setTransitionOpen(false)}>
+        <div className="overlay">
           <div
             className="form-dialog academic-year-dialog"
             onClick={(event) => event.stopPropagation()}

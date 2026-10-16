@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
   School,
+  X,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
@@ -36,7 +37,7 @@ export function SearchDialog({
     )
     .slice(0, 4);
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay">
       <div className="search-dialog" onClick={(e) => e.stopPropagation()}>
         <form className="dialog-search" onSubmit={(event) => event.preventDefault()}>
           <Search />
@@ -45,7 +46,14 @@ export function SearchDialog({
             {...register("query")}
             placeholder="Search schools, records, staff..."
           />
-          <kbd>ESC</kbd>
+          <button
+            className="icon-button"
+            type="button"
+            onClick={onClose}
+            aria-label="Close search"
+          >
+            <X />
+          </button>
         </form>
         <div className="search-section">
           <span>Schools</span>

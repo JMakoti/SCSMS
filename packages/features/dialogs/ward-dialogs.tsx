@@ -57,7 +57,7 @@ export function AddWardDialog({
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay">
       <div
         className="form-dialog add-ward-dialog"
         onClick={(event) => event.stopPropagation()}
@@ -108,6 +108,9 @@ export function AddWardDialog({
                   Ward code
                   <input {...register("wardCode")} placeholder="0067" />
                 </label>
+                <p className="col-span-full m-0 text-xs text-muted-foreground">
+                  Select a sub-county to automatically fill in the other details.
+                </p>
                 <label>
                   County
                   <input value={selectedSubCounty?.county ?? ""} readOnly />

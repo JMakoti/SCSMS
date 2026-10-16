@@ -96,11 +96,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     const handleKeyboardShortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setDialog("search");
-      }
-
-      if (event.key === "Escape") {
-        setDialog(null);
+        setDialog((current) => current ?? "search");
       }
     };
 

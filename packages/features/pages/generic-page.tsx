@@ -386,7 +386,7 @@ function AddStaffDialog({
     }
   };
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay">
       <div
         className="form-dialog add-staff-dialog"
         onClick={(event) => event.stopPropagation()}
