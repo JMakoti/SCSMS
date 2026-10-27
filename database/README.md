@@ -103,7 +103,7 @@ pnpm.cmd db:studio:sqlite
 
 ```powershell
 pnpm.cmd db:generate:postgres
-pnpm.cmd db:migrate:postgres
+pnpm.cmd db:migrate:postgres || pnpm exec drizzle-kit migrate --config=drizzle.config.postgres.ts
 pnpm.cmd db:push:postgres
 pnpm.cmd db:studio:postgres
 ```

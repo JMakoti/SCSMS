@@ -16,6 +16,6 @@ export default defineConfig({
   out: "./drizzle/postgres",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/scsmsdb",
+    url: process.env.DATABASE_URL!,
   },
 });
