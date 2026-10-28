@@ -130,4 +130,5 @@ Desktop.ini
 
 *.swp
 *.swo
-*~.pnpm-store/
+*~.pnpm-store/.
+.pnpm-store/
