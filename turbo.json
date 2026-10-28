@@ -7,7 +7,12 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "DATABASE_URL",
+        "SCSMS_ADMIN_PASSWORD",
+        "SCSMS_SESSION_SECRET"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]
