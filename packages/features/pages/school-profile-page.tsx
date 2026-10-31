@@ -651,7 +651,7 @@ export function SchoolProfile({
   } | null>(null);
   const [failedLogoPath, setFailedLogoPath] = useState<string | null>(null);
   const { currentAcademicYear } = useAcademicYear();
-  const { schools, schoolYears, terms, contacts } = useFeatureData();
+  const { schools, schoolYears, terms, contacts, staff } = useFeatureData();
   const currentYearTerms = terms.filter(
     (termRecord) => termRecord.academicYearId === currentAcademicYear.id,
   );
@@ -713,6 +713,13 @@ export function SchoolProfile({
   const maleLearners = yearRecord?.maleCount ?? 0;
   const femaleLearners = yearRecord?.femaleCount ?? 0;
   const totalGenderLearners = maleLearners + femaleLearners;
+  const activeTeacherCount = staff.filter(
+    (member) => member.schoolId === school.id && member.type === "Teaching" && member.status === "Active",
+  ).length;
+  const learnerTeacherRatio = activeTeacherCount > 0
+    ? `${(totalGenderLearners / activeTeacherCount).toLocaleString(undefined, { maximumFractionDigits: 1 })}:1`
+    : "Not available";
+  const sneProvision = school.sne === "YES" ? "Yes" : school.sne === "NO" ? "No" : "Not provided";
   const maleShare = totalGenderLearners
     ? Math.round((maleLearners / totalGenderLearners) * 100)
     : 0;
@@ -1107,14 +1114,28 @@ export function SchoolProfile({
               <div>
                 <UserCog />
                 <strong>
-                  {(yearRecord?.teacherCount ?? 0).toLocaleString()}
+                  {activeTeacherCount.toLocaleString()}
                 </strong>
                 <span>Teaching staff</span>
               </div>
               <div>
                 <Users />
-                <strong>{displayValue(school.sourceInstitutionType)}</strong>
-                <span>Source type</span>
+                <strong>{maleLearners.toLocaleString()} / {femaleLearners.toLocaleString()}</strong>
+                <span>Boys vs Girls</span>
+                <span style={{ gridColumn: 2 }}>Enrollment by gender</span>
+              </div>
+              <div>
+                <UserCog />
+                <strong>{learnerTeacherRatio}</strong>
+                <span>Learner–Teacher Ratio</span>
+                <span style={{ gridColumn: 2 }}>Learners per teacher</span>
+                <span style={{ gridColumn: 2 }}>Enrollment ÷ active teachers</span>
+              </div>
+              <div>
+                <Building2 />
+                <strong>{sneProvision}</strong>
+                <span>SNE Facilities</span>
+                <span style={{ gridColumn: 2 }}>Special needs education provision</span>
               </div>
               <div>
                 <Building2 />
