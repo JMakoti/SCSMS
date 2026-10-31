@@ -253,6 +253,7 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
       : undefined;
     return {
       id: school.id,
+      logoPath: school.logoObjectKey,
       wardId: school.wardId,
       schoolCode: school.schoolCode,
       uicCode: school.uicCode,

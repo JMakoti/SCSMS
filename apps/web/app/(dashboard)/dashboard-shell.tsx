@@ -18,6 +18,9 @@ import type { SessionUser } from "../session-user";
 import { FeatureDataBoundary } from "./feature-data-boundary";
 import { saveInfrastructureFacility } from "@/lib/infrastructure";
 import { updateStaffMember } from "@/lib/staff";
+import { readAuthResponse } from "@/lib/auth/read-response";
+import { chooseSchoolLogoFile } from "@/lib/school-logo";
+import { createSchool } from "@/lib/school";
 
 type EditDialogState = {
   active: string;
@@ -54,7 +57,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         if (!response.ok) {
           throw new Error("Your session could not be verified.");
         }
-        const payload: unknown = await response.json();
+        const payload = await readAuthResponse(response);
         if (
           !payload ||
           typeof payload !== "object" ||
@@ -142,7 +145,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     });
-    const payload: unknown = await response.json();
+    const payload = await readAuthResponse(response);
     if (!response.ok) {
       throw new Error(
         payload &&
@@ -251,7 +254,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           />
         )}
         {dialog === "add" && (
-          <AddSchoolDialog onClose={() => setDialog(null)} />
+          <AddSchoolDialog onClose={() => setDialog(null)} onSave={createSchool} onChooseFile={chooseSchoolLogoFile} />
         )}
         {editDialog && (
           <EditRecordDialog

@@ -28,6 +28,7 @@
     ".": "./src/index.ts",
     "./sqlite": "./src/sqlite.ts",
     "./postgres": "./src/postgres.ts",
+    "./storage": "./storage/client.mjs",
     "./schema/*": "./src/schema/*.ts",
     "./postgress-schemas/*": "./src/postgress-schemas/*.ts"
   },

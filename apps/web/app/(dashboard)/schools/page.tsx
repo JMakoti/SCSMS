@@ -3,6 +3,7 @@
 import SchoolsRoutePage from "@scsms/features/pages/schools-route-page";
 import { saveEnrollmentGrade } from "@/lib/enrollment";
 import { createSchool } from "@/lib/school";
+import { chooseSchoolLogoFile, resolveSchoolLogo } from "@/lib/school-logo";
 import {
   createInfrastructureProject,
   deleteInfrastructureProject,
@@ -20,6 +21,8 @@ export default function SchoolsPage() {
   return (
     <SchoolsRoutePage
       onSaveSchool={createSchool}
+      onChooseFile={chooseSchoolLogoFile}
+      resolveLogo={resolveSchoolLogo}
       onSaveEnrollmentGrade={saveEnrollmentGrade}
       onSaveInfrastructureFacility={saveInfrastructureFacility}
       onCreateInfrastructureProject={createInfrastructureProject}

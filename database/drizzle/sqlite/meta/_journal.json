@@ -43,6 +43,13 @@
       "when": 1791510000000,
       "tag": "0005_school_cluster_level",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793451056259,
+      "tag": "0006_amazing_vivisector",
+      "breakpoints": true
     }
   ]
 }

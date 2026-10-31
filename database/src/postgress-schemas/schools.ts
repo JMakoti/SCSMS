@@ -18,6 +18,7 @@ export const schools = pgTable(
     nemisCode: text("nemis_code"),
     knecCode: text("knec_code"),
     tscCode: text("tsc_code"),
+    logoObjectKey: text("logo_object_key"),
     registrationNumber: text("registration_number"),
     officialName: text("official_name").notNull(),
     displayName: text("display_name").notNull(),

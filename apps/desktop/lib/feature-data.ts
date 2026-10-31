@@ -526,7 +526,7 @@ export async function loadDesktopFeatureData(
   ];
   const syncRecords = syncQueueRecords.map((record) => {
     const recordLabel =
-      record.tableName === "schools"
+      record.tableName === "schools" || record.tableName === "__files"
         ? schoolsById.get(record.recordId)?.displayName
         : record.tableName === "staff"
           ? staff.find((member) => member.id === record.recordId)?.name
@@ -537,9 +537,9 @@ export async function loadDesktopFeatureData(
             : undefined;
     return {
       id: record.id,
-      tableName: record.tableName,
+      tableName: record.tableName === "__files" ? "School logos" : record.tableName,
       recordId: record.recordId,
-      operation: record.operation,
+      operation: record.tableName === "__files" ? "upload" : record.operation,
       status: record.status,
       createdAt: record.createdAt,
       syncedAt: record.syncedAt,

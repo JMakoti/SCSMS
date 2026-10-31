@@ -6,7 +6,7 @@ dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 
 const nextConfig: NextConfig = {
   /* config options here */
-  allowedDevOrigins: ["localhost", "192.168.0.242"],
+  allowedDevOrigins: ["localhost", "192.168.0.242", "192.168.18.2"],
   transpilePackages: ["@scsms/db", "@scsms/features", "@scsms/ui"],
 };
 

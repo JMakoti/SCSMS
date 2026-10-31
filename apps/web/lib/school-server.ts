@@ -13,6 +13,7 @@ import {
 } from "@scsms/db/postgress-schemas/index";
 import type { AddSchoolFormValues } from "@scsms/features/types/forms";
 import { writeSchoolAudit } from "./school-audit-server";
+import { fileContentType } from "@scsms/db/storage";
 
 type School = typeof schools.$inferSelect;
 
@@ -147,7 +148,10 @@ function parseCoordinate(value: string | undefined, label: string) {
 }
 
 function mapSchoolFields(input: AddSchoolFormValues) {
+  const logoObjectKey = optional(input.filePath);
+  if (logoObjectKey) fileContentType(logoObjectKey);
   return {
+    logoObjectKey,
     schoolCode: required(input.schoolCode, "School code"),
     uicCode: required(input.uicCode, "UIC code"),
     knecCode: optional(input.knecCode),

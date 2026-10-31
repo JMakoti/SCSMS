@@ -11,6 +11,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .manage(database::auth::AccountSession::default())
+        .manage(database::sync::SyncRuntime::default())
         // Register plugins
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -41,6 +42,17 @@ pub fn run() {
                     .await
                     .expect("Failed to seed SQLite database");
 
+                database::sync::initialize(&pool)
+                    .await
+                    .expect("Failed to initialize offline sync");
+                database::sync::start(
+                    handle.clone(),
+                    pool.clone(),
+                    handle
+                        .state::<database::sync::SyncRuntime>()
+                        .inner()
+                        .clone(),
+                );
                 handle.manage(pool);
             });
 
@@ -52,6 +64,8 @@ pub fn run() {
             database::auth::logout,
             database::auth::update_account_profile,
             database::auth::change_account_password,
+            database::sync::sync_status,
+            database::sync::sync_now,
             run_sql,
             database::seed::seed_database,
             file_storage::store_school_logo,

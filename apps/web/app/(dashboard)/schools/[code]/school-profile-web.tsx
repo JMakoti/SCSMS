@@ -1,6 +1,7 @@
 "use client";
 
 import SchoolProfileRoutePage from "@scsms/features/pages/school-profile-route-page";
+import { resolveSchoolLogo } from "@/lib/school-logo";
 import { saveEnrollmentGrade } from "@/lib/enrollment";
 import {
   createInfrastructureProject,
@@ -19,6 +20,7 @@ export default function SchoolProfileWeb({ schoolId }: { schoolId: string }) {
   return (
     <SchoolProfileRoutePage
       schoolId={schoolId}
+      resolveLogo={resolveSchoolLogo}
       onSaveEnrollmentGrade={saveEnrollmentGrade}
       onSaveInfrastructureFacility={saveInfrastructureFacility}
       onCreateInfrastructureProject={createInfrastructureProject}

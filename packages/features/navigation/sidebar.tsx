@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { moduleForPath } from "../navigation/module-for-path";
 import { routeForModule } from "../navigation/route-for-module";
+import { useFeatureData } from "../data/feature-data-context";
 const navGroups = [
   {
     label: "Overview",
@@ -77,6 +78,7 @@ export function Sidebar({
   onCloseMobile?: () => void;
 }) {
   const pathname = usePathname();
+  const { pendingSyncCount } = useFeatureData();
   const current = active ?? moduleForPath(pathname);
 
   return (
@@ -116,7 +118,9 @@ export function Sidebar({
                 <Icon />
                 {!collapsed && <span>{label}</span>}
                 {!collapsed && label === "Synchronization" && (
-                  <span className="nav-count">7</span>
+                  <span className="nav-count" aria-label={`${pendingSyncCount} pending syncs`}>
+                    {pendingSyncCount}
+                  </span>
                 )}
               </Link>
             ))}

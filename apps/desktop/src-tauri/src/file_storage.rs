@@ -9,8 +9,8 @@ const ALLOWED_LOGO_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "svg"];
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedSchoolLogo {
-    absolute_path: String,
-    relative_path: String,
+    pub absolute_path: String,
+    pub relative_path: String,
 }
 
 #[tauri::command]
@@ -20,6 +20,9 @@ pub fn store_school_logo(app: AppHandle, source_path: String) -> Result<String, 
         .map_err(|error| format!("Unable to read the selected logo file: {error}"))?;
     if !metadata.is_file() {
         return Err("The selected school logo must be a file.".to_string());
+    }
+    if metadata.len() == 0 || metadata.len() > 5 * 1024 * 1024 {
+        return Err("Choose a non-empty school logo up to 5 MB.".into());
     }
 
     let extension = source

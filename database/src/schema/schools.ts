@@ -19,6 +19,7 @@ export const schools = sqliteTable(
     knecCode: text("knec_code"),
     tscCode: text("tsc_code"),
     logoPath: text("logo_path"),
+    logoObjectKey: text("logo_object_key"),
     registrationNumber: text("registration_number"),
     officialName: text("official_name").notNull(),
     displayName: text("display_name").notNull(),

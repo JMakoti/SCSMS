@@ -354,6 +354,7 @@ export async function updateSchool(id: string, input: EditSchoolRecordFormValues
   const nextValues = {
     ...mapSchoolFields(fields),
     logoPath: optional(fields.filePath),
+    ...(optional(fields.filePath) !== existing.logoPath ? { logoObjectKey: null } : {}),
     wardId,
     updatedAt: new Date().toISOString(),
   };

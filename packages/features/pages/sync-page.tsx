@@ -3,8 +3,19 @@
 import { Button } from "@scsms/ui/components/button";
 import { Cloud, MoreHorizontal, RefreshCw } from "lucide-react";
 import { useFeatureData } from "../data/feature-data-context";
+import { useSyncState } from "../data/sync-context";
+import { useSyncExternalStore } from "react";
 import PageHeader from "../ui/page-header";
+const subscribeOnline = (callback: () => void) => {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => { window.removeEventListener("online", callback); window.removeEventListener("offline", callback); };
+};
 export function SyncPage() {
+  const sync = useSyncState();
+  const desktop = sync?.mode === "desktop";
+  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
+  const syncNow = () => sync ? sync.syncNow() : window.dispatchEvent(new Event("scsms:feature-data-refresh"));
   const { pendingSyncCount, syncRecords } = useFeatureData();
   const failedRecords = syncRecords.filter((record) => record.status === "failed");
   const syncedRecords = syncRecords.filter((record) => record.status === "synced");
@@ -25,9 +36,9 @@ export function SyncPage() {
         description="Monitor local changes and synchronize securely with the central database"
         eyebrow="Administration / Synchronization"
         action={
-          <Button>
-            <RefreshCw data-icon="inline-start" />
-            Sync Now
+          <Button onClick={syncNow} disabled={!online || Boolean(sync?.syncing)}>
+            <RefreshCw data-icon="inline-start" className={sync?.syncing ? "animate-spin" : undefined} />
+            {sync?.syncing ? desktop ? "Syncing…" : "Refreshing…" : desktop ? "Sync Now" : "Refresh cloud data"}
           </Button>
         }
       />
@@ -37,8 +48,10 @@ export function SyncPage() {
         </div>
         <div>
           <span className="eyebrow">Connection status</span>
-          <h2>Database connection active</h2>
-          <p>Last successful sync: {formatDate(lastSuccessfulSync ?? null)}</p>
+          <h2>{!online ? desktop ? "Offline — changes stay on this device" : "Offline — reconnect to access cloud data" : desktop ? !sync.configured ? "Cloud sync is not configured" : sync.syncing ? "Synchronizing with cloud" : sync.error ? "Waiting to retry" : "Automatic cloud sync enabled" : sync?.syncing ? "Refreshing cloud data" : "Connected to cloud PostgreSQL"}</h2>
+          <p role="status" aria-live="polite">{desktop ? "Last successful sync" : "Last cloud refresh"}: {sync?.lastSuccess ? new Date(Number(sync.lastSuccess)).toLocaleString() : formatDate(lastSuccessfulSync ?? null)}</p>
+          {sync?.error && <p role="status">{sync.error}</p>}
+          <p>{desktop ? sync.configured ? "Changes upload and download automatically while this application is open." : "Start desktop development with pnpm dev:desktop to load your root sync settings, or configure the installed application's sync.json." : "Cloud records refresh automatically every 15 seconds. Desktop applications upload and download changes while they are open."}</p>
         </div>
         <div className="sync-metrics">
           <div>
@@ -61,7 +74,7 @@ export function SyncPage() {
             <h2>Sync queue</h2>
             <p>Local changes waiting to be processed</p>
           </div>
-          <button className="outline-button" disabled={failedRecords.length === 0}>
+          <button className="outline-button" onClick={syncNow} disabled={!online || failedRecords.length === 0 || Boolean(sync?.syncing)}>
             Retry failed
           </button>
         </div>
@@ -73,6 +86,7 @@ export function SyncPage() {
             <div>
               <strong>{record.label}</strong>
               <span>{record.operation} · {record.tableName}</span>
+              {record.lastError && <span role="status">{record.lastError}</span>}
             </div>
             <span className={`sync-status ${record.status === "failed" ? "failed" : "pending"}`}>
               {record.status}

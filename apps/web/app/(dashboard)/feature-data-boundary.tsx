@@ -8,26 +8,38 @@ import {
   isFeatureData,
   type FeatureData,
 } from "@scsms/features/data/feature-data-context";
+import { SyncProvider } from "@scsms/features/data/sync-context";
 
 export function FeatureDataBoundary({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [data, setData] = useState<FeatureData | null>(null);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<string | null>(null);
 
   useEffect(() => {
-    const refreshFeatureData = () => setReloadKey((key) => key + 1);
+    const refreshFeatureData = () => {
+      setRefreshing(true);
+      setReloadKey((key) => key + 1);
+    };
+    const timer = window.setInterval(() => {
+      if (navigator.onLine && document.visibilityState === "visible") refreshFeatureData();
+    }, 15_000);
+    window.addEventListener("online", refreshFeatureData);
     window.addEventListener("scsms:feature-data-refresh", refreshFeatureData);
-    return () =>
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("online", refreshFeatureData);
       window.removeEventListener(
         "scsms:feature-data-refresh",
         refreshFeatureData,
       );
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    setError("");
 
     fetch("/api/feature-data", { cache: "no-store" })
       .then(async (response) => {
@@ -48,7 +60,11 @@ export function FeatureDataBoundary({ children }: { children: ReactNode }) {
         return payload;
       })
       .then((featureData) => {
-        if (!cancelled) setData(featureData);
+        if (!cancelled) {
+          setData(featureData);
+          setError("");
+          setLastRefresh(String(Date.now()));
+        }
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
@@ -57,7 +73,7 @@ export function FeatureDataBoundary({ children }: { children: ReactNode }) {
             ? loadError.message
             : "Database records could not be loaded.",
         );
-      });
+      }).finally(() => { if (!cancelled) setRefreshing(false); });
 
     return () => {
       cancelled = true;
@@ -93,6 +109,8 @@ export function FeatureDataBoundary({ children }: { children: ReactNode }) {
   }
 
   return (
+    <SyncProvider value={{ mode: "cloud", configured: true, syncing: refreshing, lastSuccess: lastRefresh, error: error || null,
+      syncNow: () => window.dispatchEvent(new Event("scsms:feature-data-refresh")) }}>
     <FeatureDataProvider data={data}>
       <AcademicYearProvider
         initialAcademicYears={data.academicYears}
@@ -104,5 +122,6 @@ export function FeatureDataBoundary({ children }: { children: ReactNode }) {
         {children}
       </AcademicYearProvider>
     </FeatureDataProvider>
+    </SyncProvider>
   );
 }
