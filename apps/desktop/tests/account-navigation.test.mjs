@@ -31,6 +31,23 @@ function findAll(node, matches) {
   ];
 }
 
+test("data quality opens runtime schools through the exported schools page", () => {
+  const schoolId = "new-school / offline?record";
+  const { DataQualityPage } = loadFeature("pages/data-quality-page.tsx", {
+    "../data/use-completeness": { useCompleteness: () => ({
+      percent: 0, complete: 0, incomplete: 1,
+      records: [{ school: { id: schoolId, displayName: "New offline school" }, percent: 0, completed: 0, total: 1,
+        groups: [{ label: "Basic information", missing: ["Phone"] }] }],
+    }) },
+    "../academic-years/academic-year-context": { useAcademicYear: () => ({ currentAcademicYear: { name: "2026" } }) },
+  });
+  const links = findAll(DataQualityPage(), (node) => node.props?.children === "Review school");
+  assert.equal(links.length, 1);
+  const destination = new URL(links[0].props.href, "http://localhost:3001");
+  assert.equal(destination.pathname, "/schools");
+  assert.equal(destination.searchParams.get("school"), schoolId);
+});
+
 test("the topbar ends with a logout button and contains no account dropdown", () => {
   let loggedOut = false;
   const { Topbar } = loadFeature("navigation/topbar.tsx");

@@ -19,6 +19,8 @@ import PageHeader from "../ui/page-header";
 import { useAcademicYear } from "../academic-years/academic-year-context";
 import { AcademicYearSelector } from "../academic-years/academic-year-selector";
 import { useFeatureData } from "../data/feature-data-context";
+import { useCompleteness } from "../data/use-completeness";
+import Link from "next/link";
 
 const enrollmentGradeOrder = [
   "PP1",
@@ -181,6 +183,7 @@ export function DonutChart() {
 }
 
 function Dashboard({ setActive }: { setActive: (v: string) => void }) {
+  const quality = useCompleteness();
   const { currentAcademicYear } = useAcademicYear();
   const {
     schools,
@@ -217,15 +220,9 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
   const privateSchools = schools.filter(
     (school) => school.ownershipType === "PRIVATE",
   ).length;
-  const completeSchoolCount = schools.filter(
-    (school) =>
-      [school.schoolCode, school.phone, school.email, school.ward, school.location]
-        .filter(Boolean).length === 5,
-  ).length;
-  const incompleteSchoolCount = schools.length - completeSchoolCount;
-  const completeness = schools.length
-    ? Math.round((completeSchoolCount / schools.length) * 100)
-    : 0;
+  const completeSchoolCount = quality.complete;
+  const incompleteSchoolCount = quality.incomplete;
+  const completeness = quality.percent;
   const totalGenderLearners = dashboardGenderDistribution.reduce(
     (sum, item) => sum + item.value,
     0,
@@ -503,16 +500,16 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
           <div className="panel-header">
             <div>
               <h2>Data Completeness</h2>
-              <p>Quality of school records</p>
+              <p>Quality of school records · {currentAcademicYear.name}</p>
             </div>
-            <button className="icon-button">
+            <Link className="icon-button" href="/data-quality" aria-label="Review data completeness">
               <MoreHorizontal />
-            </button>
+            </Link>
           </div>
           <div className="completeness-body">
-            <div className="completion-ring">
+            <div className="completion-ring" style={{ background: `conic-gradient(#1d4ed8 0 ${completeness}%, #e2e8f0 ${completeness}% 100%)` }} role="progressbar" aria-label="Data completeness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completeness}>
               <strong>{completeness}%</strong>
-              <span>Complete</span>
+              <span>Fields recorded</span>
             </div>
             <div className="completion-stats">
               <div>
@@ -525,9 +522,9 @@ function Dashboard({ setActive }: { setActive: (v: string) => void }) {
                 <span>Incomplete records</span>
                 <b>{incompleteSchoolCount.toLocaleString()}</b>
               </div>
-              <button onClick={() => setActive("Data Quality")}>
+              <Link className="text-button" href="/data-quality">
                 View data quality <ChevronRight />
-              </button>
+              </Link>
             </div>
           </div>
         </section>

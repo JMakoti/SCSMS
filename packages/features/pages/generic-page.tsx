@@ -29,6 +29,7 @@ import {
 import { useForm } from "react-hook-form";
 import PageHeader from "../ui/page-header";
 import { StatusBadge } from "../ui/status-badge";
+import { DataQualityPage } from "./data-quality-page";
 
 // Restore the role catalogue when an app has no user/role records configured yet.
 const defaultUserRoles = [
@@ -161,6 +162,7 @@ export function GenericPage({
           : `record reference ${String(index + 1).padStart(3, "0")}`;
       return `${item} ${details}`.toLowerCase().includes(normalizedQuery);
     });
+  if (active === "Data Quality") return <DataQualityPage />;
   return (
     <div className="content">
       <PageHeader
@@ -210,9 +212,7 @@ export function GenericPage({
         </div>
         <div>
           <strong>
-            {active === "Data Quality"
-              ? `${schools.length ? Math.round((schools.reduce((sum, school) => sum + [school.schoolCode, school.phone, school.email, school.ward, school.location].filter(Boolean).length, 0) / (schools.length * 5)) * 100) : 0}%`
-              : active === "Audit Logs"
+            {active === "Audit Logs"
                 ? String(moduleItems.length)
                 : active === "Reports"
                   ? String(reportTemplates.length)
@@ -221,9 +221,7 @@ export function GenericPage({
                     : active === "Users & Roles" ? "1 active role" : "Active module"}
           </strong>
           <span>
-            {active === "Data Quality"
-              ? "Overall data completeness"
-              : active === "Audit Logs"
+            {active === "Audit Logs"
                 ? "Events in database"
                 : active === "Ward"
                   ? "Wards in database"

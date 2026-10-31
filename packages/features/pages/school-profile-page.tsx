@@ -26,6 +26,7 @@ import InfrastructureContent from "../pages/infrastructure-page";
 import { EnrollmentGradeTable } from "../pages/enrollment-page";
 import { StaffContent } from "../pages/staff-page";
 import { useFeatureData } from "../data/feature-data-context";
+import { useCompleteness } from "../data/use-completeness";
 import { ExportMenu } from "../ui/export-menu";
 import type { EnrollmentGradeSaveInput } from "../schemas/enrollment-grade-schema";
 import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
@@ -643,6 +644,8 @@ export function SchoolProfile({
   ContactActions &
   SubjectCombinationActions) {
   const [tab, setTab] = useState("Overview");
+  const quality = useCompleteness();
+  const [reviewMissing, setReviewMissing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [termId, setTermId] = useState("");
   const [resolvedLogo, setResolvedLogo] = useState<{
@@ -732,33 +735,8 @@ export function SchoolProfile({
   const schoolLevel = getSchoolLevel(school);
   const schoolOwnership = getSchoolOwnership(school);
   const titleDeed = getSchoolTitleDeed(school);
-  const completenessFields = [
-    school.schoolCode,
-    school.uicCode,
-    registrationStatus,
-    schoolLevel,
-    school.officialName,
-    school.displayName,
-    schoolClassification,
-    schoolOwnership,
-    school.genderType,
-    school.boardingType,
-    school.ward,
-    school.location,
-    school.address,
-    school.phone,
-    school.email,
-    school.latitude,
-    school.longitude,
-    titleDeed,
-  ];
-  const completeness = Math.round(
-    (completenessFields.filter(
-      (value) => value !== null && value !== undefined && String(value).trim(),
-    ).length /
-      completenessFields.length) *
-      100,
-  );
+  const schoolQuality = quality.records.find((record) => record.school.id === school.id)!;
+  const completeness = schoolQuality.percent;
   const coordinates =
     school.latitude !== null && school.longitude !== null
       ? `${school.latitude}, ${school.longitude}`
@@ -1183,30 +1161,33 @@ export function SchoolProfile({
               <div className="panel-header">
                 <div>
                   <h2>Data completeness</h2>
-                  <p>Profile information quality</p>
+                  <p>Profile information quality · {currentAcademicYear.name}</p>
                 </div>
                 <span className="quality-value">{completeness}%</span>
               </div>
-              <div className="progress">
+              <div className="progress" role="progressbar" aria-label="School data completeness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completeness}>
                 <span style={{ width: `${completeness}%` }} />
               </div>
               <div className="quality-breakdown">
-                <span>
-                  <Check /> Basic information
-                </span>
-                <span>
-                  <Check /> Location
-                </span>
-                <span>
-                  <Check /> Enrollment
-                </span>
-                <span className="missing">
-                  <Info /> Infrastructure (1 missing)
-                </span>
+                {schoolQuality.groups.map((group) => <span key={group.label} className={group.missing.length ? "missing" : undefined}>
+                  {group.missing.length ? <Info /> : <Check />}
+                  {group.label} ({group.total - group.missing.length}/{group.total})
+                </span>)}
               </div>
-              <button className="text-button">
-                Review missing data <ChevronRight />
+              <button className="text-button" aria-expanded={reviewMissing} aria-controls="school-missing-data" onClick={() => setReviewMissing((value) => !value)}>
+                {reviewMissing ? "Hide missing data" : "Review missing data"} <ChevronRight />
               </button>
+              {reviewMissing && <div id="school-missing-data">
+                <p>{schoolQuality.completed} of {schoolQuality.total} checks recorded.</p>
+                {schoolQuality.groups.filter((group) => group.missing.length).map((group) => <div key={group.label}>
+                  <h3>{group.label}</h3>
+                  <ul>{group.missing.map((field) => <li key={field}>{field}</li>)}</ul>
+                  <button className="text-button" onClick={() => group.target === "Overview" ? openSchoolEdit() : setTab(group.target)}>
+                    {group.target === "Overview" ? "Edit school information" : `Open ${group.target}`} <ChevronRight />
+                  </button>
+                </div>)}
+                {schoolQuality.completed === schoolQuality.total && <p>No missing data for this academic year.</p>}
+              </div>}
             </section>
           </div>
         </div>
