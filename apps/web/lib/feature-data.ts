@@ -97,7 +97,8 @@ function mapOwnership(value: string) {
 
 function mapGender(value: string | null): RabaiSchool["genderType"] {
   if (value === "boys") return "BOYS";
-  if (value === "girls") return "GIRLS";
+  // The Postgres schema stores girls' schools as "male" in legacy records.
+  if (value === "girls" || value === "male") return "GIRLS";
   if (value === "mixed") return "MIXED";
   return "UNKNOWN";
 }

@@ -530,6 +530,8 @@ export function EnrollmentGradeTable({
   const schoolRecord = schoolRecords.find(
     (record) => record.displayName === school,
   );
+  const showBoys = schoolRecord?.genderType !== "GIRLS";
+  const showGirls = schoolRecord?.genderType !== "BOYS";
   const schoolType = getEnrollmentSchoolType(
     schoolRecord?.institutionType ?? "",
   );
@@ -654,11 +656,13 @@ export function EnrollmentGradeTable({
         </div>
       </div>
       {saveError && <p role="alert">{saveError}</p>}
-      <div className="detail-enrollment-table">
+      <div
+        className={`detail-enrollment-table ${!showBoys || !showGirls ? "single-gender" : ""}`}
+      >
         <div className="detail-enrollment-head">
           <span>Grade</span>
-          <span>Boys</span>
-          <span>Girls</span>
+          {showBoys && <span>Boys</span>}
+          {showGirls && <span>Girls</span>}
           <span>Total learners</span>
           <span>
             <span className="sr-only">Actions</span>
@@ -672,26 +676,30 @@ export function EnrollmentGradeTable({
             <strong>{grade}</strong>
             {editing === grade ? (
               <>
-                <input
-                  className="grade-number-input"
-                  type="number"
-                  min="0"
-                  value={draft.male}
-                  onChange={(e) =>
-                    setDraft({ ...draft, male: Number(e.target.value) })
-                  }
-                  aria-label={`${grade} boys`}
-                />
-                <input
-                  className="grade-number-input"
-                  type="number"
-                  min="0"
-                  value={draft.female}
-                  onChange={(e) =>
-                    setDraft({ ...draft, female: Number(e.target.value) })
-                  }
-                  aria-label={`${grade} girls`}
-                />
+                {showBoys && (
+                  <input
+                    className="grade-number-input"
+                    type="number"
+                    min="0"
+                    value={draft.male}
+                    onChange={(e) =>
+                      setDraft({ ...draft, male: Number(e.target.value) })
+                    }
+                    aria-label={`${grade} boys`}
+                  />
+                )}
+                {showGirls && (
+                  <input
+                    className="grade-number-input"
+                    type="number"
+                    min="0"
+                    value={draft.female}
+                    onChange={(e) =>
+                      setDraft({ ...draft, female: Number(e.target.value) })
+                    }
+                    aria-label={`${grade} girls`}
+                  />
+                )}
                 <b>{draft.male + draft.female}</b>
                 <span className="grade-edit-actions">
                   <button
@@ -715,8 +723,8 @@ export function EnrollmentGradeTable({
               </>
             ) : (
               <>
-                <span>{male}</span>
-                <span>{female}</span>
+                {showBoys && <span>{male}</span>}
+                {showGirls && <span>{female}</span>}
                 <b>{total}</b>
                 <span className="grade-edit-actions">
                   <button

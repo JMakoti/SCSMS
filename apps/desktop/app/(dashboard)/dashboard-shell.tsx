@@ -166,6 +166,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     <FeatureDataBoundary
       key={sessionKey}
       userEmail={sessionUser.email}
+      dark={dark}
       onSetCurrentAcademicYear={setCurrentAcademicYear}
       onTransitionAcademicYear={persistAcademicYearTransition}
     >

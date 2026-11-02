@@ -7305,6 +7305,10 @@ tbody tr:hover {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+.detail-enrollment-table.single-gender .detail-enrollment-head,
+.detail-enrollment-table.single-gender .detail-enrollment-row {
+  grid-template-columns: 2fr 1fr 1.2fr 42px;
+}
 .detail-enrollment-row {
   border-bottom: 1px solid #edf2f7;
   color: #64748b;

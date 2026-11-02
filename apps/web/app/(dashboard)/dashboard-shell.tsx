@@ -184,18 +184,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   };
 
   if (sessionLoading) {
-    return (
-      <>
-        <main className="auth-page">
-          <section className="login-card">
-            <p>Checking your session...</p>
-          </section>
-        </main>
-        <style jsx global>
-          {globalStyles}
-        </style>
-      </>
-    );
+    return null;
   }
 
   if (!sessionUser) {
@@ -214,7 +203,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <FeatureDataBoundary>
+    <FeatureDataBoundary dark={dark}>
       <div
         className={`app ${dark ? "dark-theme" : ""} ${
           mobileNavOpen ? "mobile-nav-open" : ""

@@ -9,8 +9,9 @@ import {
   type FeatureData,
 } from "@scsms/features/data/feature-data-context";
 import { SyncProvider } from "@scsms/features/data/sync-context";
+import { DashboardSkeleton } from "@scsms/ui/components/dashboard-skeleton";
 
-export function FeatureDataBoundary({ children }: { children: ReactNode }) {
+export function FeatureDataBoundary({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
   const pathname = usePathname();
   const [data, setData] = useState<FeatureData | null>(null);
   const [error, setError] = useState("");
@@ -80,31 +81,13 @@ export function FeatureDataBoundary({ children }: { children: ReactNode }) {
     };
   }, [pathname, reloadKey]);
 
-  if (error) {
-    return (
-      <main className="auth-page">
-        <section className="login-card">
-          <h1>Database records unavailable</h1>
-          <p role="alert">{error}</p>
-          <button
-            className="modal-primary-button"
-            type="button"
-            onClick={() => setReloadKey((key) => key + 1)}
-          >
-            Retry
-          </button>
-        </section>
-      </main>
-    );
-  }
-
   if (!data) {
     return (
-      <main className="auth-page">
-        <section className="login-card">
-          <p>Loading records from the database...</p>
-        </section>
-      </main>
+      <DashboardSkeleton
+        dark={dark}
+        error={error}
+        onRetry={() => setReloadKey((key) => key + 1)}
+      />
     );
   }
 
@@ -119,6 +102,14 @@ export function FeatureDataBoundary({ children }: { children: ReactNode }) {
           data.academicYears[0]?.id
         }
       >
+        {error && (
+          <p role="alert">
+            {error}{" "}
+            <button type="button" onClick={() => setReloadKey((key) => key + 1)}>
+              Retry
+            </button>
+          </p>
+        )}
         {children}
       </AcademicYearProvider>
     </FeatureDataProvider>
