@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Bell,
   ChevronDown,
   Menu,
   Search,
@@ -9,6 +8,7 @@ import {
   Moon,
   LogOut,
 } from "lucide-react";
+import { NotificationsMenu } from "../notifications/notifications-menu";
 export function Topbar({
   onSearch,
   onSync,
@@ -55,10 +55,7 @@ export function Topbar({
           </span>
           <ChevronDown />
         </button>
-        <button className="icon-button notification" aria-label="Notifications">
-          <Bell />
-          <span>3</span>
-        </button>
+        <NotificationsMenu />
         <button
           className="outline-button topbar-logout"
           type="button"

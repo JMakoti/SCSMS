@@ -126,7 +126,7 @@ Frontend checks from `apps/desktop`:
 pnpm.cmd build
 pnpm.cmd lint
 pnpm.cmd exec tsc --noEmit
-node --test tests/account-navigation.test.mjs tests/desktop-startup.test.mjs tests/desktop-updater.test.mjs
+node --test tests/account-navigation.test.mjs tests/desktop-startup.test.mjs tests/desktop-updater.test.mjs tests/notifications.test.mjs
 ```
 
 Tauri backend checks from `apps/desktop/src-tauri`:

@@ -617,6 +617,8 @@ export function SchoolHistoryContent({ schoolName }: { schoolName: string }) {
 
 export function SchoolProfile({
   schoolId,
+  initialTab = "Overview",
+  onTabChange,
   onBack,
   onDeleteSchool,
   resolveLogo,
@@ -633,6 +635,8 @@ export function SchoolProfile({
   onDeleteSubjectCombination,
 }: {
   schoolId: string;
+  initialTab?: string;
+  onTabChange?: (tab: string) => void;
   onBack: () => void;
   onDeleteSchool?: (schoolId: string) => Promise<void>;
   resolveLogo?: (schoolId: string, logoPath: string) => Promise<string>;
@@ -643,7 +647,7 @@ export function SchoolProfile({
 } & InfrastructureProjectActions &
   ContactActions &
   SubjectCombinationActions) {
-  const [tab, setTab] = useState("Overview");
+  const [selectedTab, setSelectedTab] = useState(initialTab);
   const quality = useCompleteness();
   const [reviewMissing, setReviewMissing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -664,6 +668,13 @@ export function SchoolProfile({
     null;
   const school = schools.find((record) => record.id === schoolId);
   const isSeniorSchool = school?.institutionType === "SENIOR_SECONDARY";
+  const requestedTab = onTabChange ? initialTab : selectedTab;
+  const tab = ["Overview", "Enrollment", "Staff", "Infrastructure", "Subject", "Contacts", "History"].includes(requestedTab)
+    && (requestedTab !== "Subject" || isSeniorSchool) ? requestedTab : "Overview";
+  const setTab = (value: string) => {
+    setSelectedTab(value);
+    onTabChange?.(value);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -683,12 +694,6 @@ export function SchoolProfile({
       cancelled = true;
     };
   }, [school?.logoPath, schoolId, resolveLogo]);
-
-  useEffect(() => {
-    if (!isSeniorSchool && tab === "Subject") {
-      setTab("Overview");
-    }
-  }, [isSeniorSchool, tab]);
 
   if (!school) {
     return (

@@ -132,12 +132,17 @@ function SchoolsRoutePageContent({
   ContactActions &
   SubjectCombinationActions) {
   const router = useRouter();
-  const schoolId = useSearchParams().get("school");
+  const query = useSearchParams();
+  const schoolId = query.get("school");
+  const initialTab = query.get("tab") ?? "Overview";
 
   if (schoolId) {
     return (
       <SchoolProfile
+        key={schoolId}
         schoolId={schoolId}
+        initialTab={initialTab}
+        onTabChange={(tab) => router.replace(`/schools?school=${encodeURIComponent(schoolId)}&tab=${encodeURIComponent(tab)}`, { scroll: false })}
         onBack={() => router.push("/schools")}
         onDeleteSchool={onDeleteSchool}
         resolveLogo={resolveLogo}
