@@ -9,19 +9,28 @@ import { UpdateContext, type UpdateStatus, type UpdateHistoryEntry } from "@scsm
 
 const storageKey = "scsms:desktop-updates";
 type StoredUpdates = {
+  preferencesVersion: number;
   automaticChecks: boolean;
   pauseUntil: string;
   lastChecked: string;
   history: UpdateHistoryEntry[];
   pendingVersion: string;
 };
-const defaults: StoredUpdates = { automaticChecks: false, pauseUntil: "", lastChecked: "", history: [], pendingVersion: "" };
+const defaults: StoredUpdates = { preferencesVersion: 1, automaticChecks: true, pauseUntil: "", lastChecked: "", history: [], pendingVersion: "" };
+const checkInterval = 60 * 60 * 1000;
+const retryInterval = 5 * 60 * 1000;
+
+function isPaused(preferences: StoredUpdates) {
+  return Boolean(preferences.pauseUntil && new Date(`${preferences.pauseUntil}T00:00:00`).getTime() > Date.now());
+}
 
 function readStored(): StoredUpdates {
   try {
     const value = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
     return {
-      automaticChecks: value.automaticChecks === true,
+      preferencesVersion: 1,
+      // Enable the new automatic flow for installations with the old opt-in default.
+      automaticChecks: value.preferencesVersion === 1 ? value.automaticChecks !== false : true,
       pauseUntil: typeof value.pauseUntil === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.pauseUntil) ? value.pauseUntil : "",
       lastChecked: typeof value.lastChecked === "string" ? value.lastChecked : "",
       pendingVersion: typeof value.pendingVersion === "string" ? value.pendingVersion : "",
@@ -43,6 +52,8 @@ export function DesktopUpdaterProvider({ children }: { children: ReactNode }) {
   const [totalBytes, setTotalBytes] = useState<number | null>(null);
   const pending = useRef<Update | null>(null);
   const busy = useRef(false);
+  const installed = useRef(false);
+  const nextAutomaticCheck = useRef(0);
 
   const persist = useCallback((changes: Partial<StoredUpdates>) => {
     const next = { ...storedRef.current, ...changes };
@@ -52,29 +63,75 @@ export function DesktopUpdaterProvider({ children }: { children: ReactNode }) {
     catch { /* Updating remains available when local storage is disabled. */ }
   }, []);
 
+  const installUpdate = useCallback(async (update: Update, automatic: boolean) => {
+    setError("");
+    setDownloadedBytes(0);
+    setTotalBytes(null);
+    setStatus("downloading");
+    try {
+      await update.download((event) => {
+        if (event.event === "Started") setTotalBytes(event.data.contentLength ?? null);
+        if (event.event === "Progress") setDownloadedBytes((bytes) => bytes + event.data.chunkLength);
+      }, { timeout: 30000 });
+      // Windows exits during install. Confirm the running version on the next launch.
+      persist({ pendingVersion: update.version });
+      setStatus("installing");
+      await update.install({ restartAfterInstall: true });
+    } catch (cause) {
+      persist({ pendingVersion: "" });
+      setError(String(cause));
+      setStatus("error");
+      nextAutomaticCheck.current = Date.now() + retryInterval;
+      return;
+    }
+    installed.current = true;
+    setStatus("installed");
+    pending.current = null;
+    await update.close().catch(() => {});
+    // Windows restarts through its installer; other platforms return here.
+    if (automatic) {
+      try { await relaunch(); }
+      catch (cause) { setError(String(cause)); }
+    }
+  }, [persist]);
+
+  const install = useCallback(async () => {
+    const update = pending.current;
+    if (!isTauri() || !update || busy.current || installed.current) return;
+    busy.current = true;
+    try { await installUpdate(update, false); }
+    finally { busy.current = false; }
+  }, [installUpdate]);
+
   const checkForUpdates = useCallback(async () => {
-    if (!isTauri() || busy.current) return;
+    if (!isTauri() || busy.current || installed.current) return;
     busy.current = true;
     setStatus("checking");
     setError("");
     try {
       if (pending.current) {
-        await pending.current.close();
+        await pending.current.close().catch(() => {});
         pending.current = null;
       }
       setMetadata({ availableVersion: "", releaseNotes: "", releaseDate: "" });
       const update = await check({ timeout: 30000 });
       pending.current = update;
       persist({ lastChecked: new Date().toISOString() });
+      nextAutomaticCheck.current = Date.now() + checkInterval;
       if (update) {
         setMetadata({ availableVersion: update.version, releaseNotes: update.body ?? "", releaseDate: update.date ?? "" });
       }
       setStatus(update ? "available" : "current");
+      const preferences = storedRef.current;
+      if (update && preferences.automaticChecks && !isPaused(preferences)) {
+        await installUpdate(update, true);
+      }
     } catch (cause) {
       setError(String(cause));
       setStatus("error");
+      nextAutomaticCheck.current = Date.now() + retryInterval;
     } finally { busy.current = false; }
-  }, [persist]);
+  }, [persist, installUpdate]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -104,44 +161,24 @@ export function DesktopUpdaterProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!ready || !stored.automaticChecks) return;
+    nextAutomaticCheck.current = 0;
     const automaticCheck = () => {
       const preferences = storedRef.current;
-      if (preferences.pauseUntil && new Date(`${preferences.pauseUntil}T00:00:00`).getTime() > Date.now()) return;
-      if (pending.current) return;
-      const last = Date.parse(preferences.lastChecked);
-      if (!Number.isFinite(last) || Date.now() - last >= 24 * 60 * 60 * 1000) void checkForUpdates();
+      if (!preferences.automaticChecks || isPaused(preferences) || navigator.onLine === false) return;
+      if (Date.now() >= nextAutomaticCheck.current) void checkForUpdates();
+    };
+    const onOnline = () => {
+      nextAutomaticCheck.current = 0;
+      automaticCheck();
     };
     automaticCheck();
     const timer = window.setInterval(automaticCheck, 60 * 1000);
-    return () => window.clearInterval(timer);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("online", onOnline);
+    };
   }, [ready, stored.automaticChecks, stored.pauseUntil, checkForUpdates]);
-
-  const install = async () => {
-    const update = pending.current;
-    if (!update || busy.current) return;
-    busy.current = true;
-    setError("");
-    setDownloadedBytes(0);
-    setTotalBytes(null);
-    setStatus("downloading");
-    try {
-      await update.download((event) => {
-        if (event.event === "Started") setTotalBytes(event.data.contentLength ?? null);
-        if (event.event === "Progress") setDownloadedBytes((bytes) => bytes + event.data.chunkLength);
-      }, { timeout: 30000 });
-      // Windows exits during install. Confirm the version on the next launch before recording success.
-      persist({ pendingVersion: update.version });
-      setStatus("installing");
-      await update.install();
-      setStatus("installed");
-      pending.current = null;
-      await update.close().catch(() => {});
-    } catch (cause) {
-      persist({ pendingVersion: "" });
-      setError(String(cause));
-      setStatus("error");
-    } finally { busy.current = false; }
-  };
 
   return <UpdateContext.Provider value={{
     supported, status, currentVersion, ...metadata, error, downloadedBytes, totalBytes,

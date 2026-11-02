@@ -155,7 +155,7 @@ Users & Roles > Education Officer > My profile opens the current account. Other 
 
 The password card requires the current password, a different new password, and matching confirmation. New passwords require at least 8 characters and at most 72 UTF-8 bytes; the backend stores a bcrypt hash. Log out is available directly at the far right of the topbar.
 
-Automatic updater checks default to off. Update preferences/history are stored separately from login state. See the [release workflow](../../.github/workflows/release.yml) and align the desktop package, Cargo, and Tauri versions before packaging.
+Automatic updates default to on, including for installations using the previous opt-in preferences. SCSMS checks at startup, hourly while open, and when connectivity returns; failures retry after five minutes. Available updates download, install, and restart the app automatically. The Update settings switch and pause date still control this behavior. Update preferences/history are stored separately from login state. See the [release workflow](../../.github/workflows/release.yml) and align the desktop package, Cargo, and Tauri versions before packaging. Published updates require signed installer artifacts and `latest.json` from that workflow.
 
 ## 🧭 Useful Routes
 

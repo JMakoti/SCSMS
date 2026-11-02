@@ -126,11 +126,11 @@ export function SettingsUpdatePanel() {
         <Megaphone className="scsms-update-lead" aria-hidden="true" />
         <div className="scsms-update-card-body">
           <div className="scsms-update-card-title">Get the latest updates as soon as they&apos;re available</div>
-          <div className="scsms-update-card-sub">Check automatically once a day while SCSMS is open for the latest fixes and improvements. You choose when to install.</div>
+          <div className="scsms-update-card-sub">Check at startup and hourly while SCSMS is open. Available updates download and install automatically, then SCSMS restarts.</div>
         </div>
         <div className="scsms-update-toggle-wrap">
           <span>{updater?.automaticChecks ? "On" : "Off"}</span>
-          <button type="button" className="scsms-switch" role="switch" aria-checked={updater?.automaticChecks ?? false} aria-label="Check for updates automatically" disabled={!supported} onClick={() => updater?.setAutomaticChecks(!updater.automaticChecks)} />
+          <button type="button" className="scsms-switch" role="switch" aria-checked={updater?.automaticChecks ?? false} aria-label="Download and install updates automatically" disabled={!supported} onClick={() => updater?.setAutomaticChecks(!updater.automaticChecks)} />
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export function SettingsUpdatePanel() {
         <Pause className="scsms-update-lead" aria-hidden="true" />
         <div className="scsms-update-card-body">
           <div className="scsms-update-card-title">Pause updates</div>
-          <div className="scsms-update-card-sub">{paused ? `Automatic checks paused until ${pauseLabel}. You can still check manually.` : "Select a date to pause automatic checks until."}</div>
+          <div className="scsms-update-card-sub">{paused ? `Automatic updates paused until ${pauseLabel}. You can still check and install manually.` : "Select a date to pause automatic updates until."}</div>
         </div>
         <div className="scsms-update-pause-actions">
           <label className={`scsms-date-btn ${!supported || busy ? "is-disabled" : ""}`}>
