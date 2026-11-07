@@ -16,6 +16,8 @@ export const performanceRecords = sqliteTable(
       .references(() => academicYears.id, { onDelete: "cascade" }),
     termId: text("term_id").references(() => terms.id, { onDelete: "set null" }),
     assessmentName: text("assessment_name").notNull(),
+    examinationType: text("examination_type", { enum: ["KCSE", "KJSEA", "KPSEA"] }),
+    degreeThreshold: text("degree_threshold").notNull().default("C+"),
     assessmentType: text("assessment_type", {
       enum: ["internal", "county", "national", "other"],
     }).notNull(),
@@ -33,6 +35,7 @@ export const performanceRecords = sqliteTable(
     notes: text("notes"),
   },
   (table) => ({
+    examinationIdx: uniqueIndex("performance_school_year_exam_idx").on(table.schoolId, table.academicYearId, table.examinationType),
     schoolYearAssessmentIdx: uniqueIndex("performance_school_year_assessment_idx").on(
       table.schoolId,
       table.academicYearId,

@@ -62,6 +62,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             database::auth::login,
             database::auth::logout,
+            database::examinations::examination_access,
+            database::examinations::save_school_examination,
             database::auth::update_account_profile,
             database::auth::change_account_password,
             database::sync::sync_status,

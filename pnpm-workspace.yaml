@@ -4,5 +4,6 @@ packages:
   - "database"
 allowBuilds:
   better-sqlite3: true
+  core-js: false
   esbuild: true
   unrs-resolver: false

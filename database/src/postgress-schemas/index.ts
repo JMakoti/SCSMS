@@ -4,6 +4,7 @@ export * from "./dashboard";
 export * from "./enrollment";
 export * from "./infrastructure";
 export * from "./performance";
+export * from "./examinations";
 export * from "./quality";
 export * from "./reports";
 export * from "./schools";

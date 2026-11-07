@@ -4,7 +4,7 @@ export const tables = [
   "schools", "school_subject_combinations", "contacts", "staff",
   "enrollment_snapshots", "enrollment_grade_rows", "infrastructure_snapshots",
   "infrastructure_facility_rows", "infrastructure_projects", "performance_records",
-  "performance_subject_rows", "report_templates", "report_runs", "settings",
+  "performance_subject_rows", "performance_candidates", "performance_candidate_subjects", "performance_candidature_summaries", "report_templates", "report_runs", "settings",
   "data_quality_checks", "dashboard_snapshots", "audit_logs",
 ];
 

@@ -57,6 +57,20 @@
       "when": 1793451062173,
       "tag": "0007_icy_wonder_man",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793641539080,
+      "tag": "0008_nappy_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793686530419,
+      "tag": "0009_chunky_doctor_octopus",
+      "breakpoints": true
     }
   ]
 }

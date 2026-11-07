@@ -7,6 +7,12 @@ const WARD_SUBCOUNTY_SCHEMA_VERSION: i64 = 4;
 const INFRASTRUCTURE_PROJECT_TERM_SCHEMA_VERSION: i64 = 5;
 const SCHOOL_CLUSTER_LEVEL_SCHEMA_VERSION: i64 = 6;
 const SCHOOL_LOGO_STORAGE_SCHEMA_VERSION: i64 = 7;
+const EXAMINATION_RESULTS_SCHEMA_VERSION: i64 = 8;
+const CANDIDATURE_SCHEMA_VERSION: i64 = 9;
+const CANDIDATURE_SCHEMA_SQL: &str =
+    include_str!("../../../../../database/drizzle/sqlite/0008_needy_orphan.sql");
+const EXAMINATION_RESULTS_SCHEMA_SQL: &str =
+    include_str!("../../../../../database/drizzle/sqlite/0007_messy_mysterio.sql");
 const INITIAL_SCHEMA_SQL: &str =
     include_str!("../../../../../database/drizzle/sqlite/0000_empty_scourge.sql");
 const SUBJECT_COMBINATIONS_SCHEMA_SQL: &str =
@@ -111,6 +117,24 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {
         )
         .await?;
     }
+    if !migration_exists(pool, EXAMINATION_RESULTS_SCHEMA_VERSION).await? {
+        apply_migration(pool, EXAMINATION_RESULTS_SCHEMA_SQL).await?;
+        record_migration(
+            pool,
+            EXAMINATION_RESULTS_SCHEMA_VERSION,
+            "school examination candidate results",
+        )
+        .await?;
+    }
+    if !migration_exists(pool, CANDIDATURE_SCHEMA_VERSION).await? {
+        apply_migration(pool, CANDIDATURE_SCHEMA_SQL).await?;
+        record_migration(
+            pool,
+            CANDIDATURE_SCHEMA_VERSION,
+            "bulk examination candidature",
+        )
+        .await?;
+    }
     Ok(())
 }
 
@@ -196,4 +220,29 @@ async fn record_migration(
     .map_err(|error| format!("Failed to record database migration: {error}"))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn examination_migration_runs_once_on_an_empty_desktop_database() {
+        tauri::async_runtime::block_on(async {
+            let pool = sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect("sqlite::memory:")
+                .await
+                .unwrap();
+            run_migrations(&pool).await.unwrap();
+            run_migrations(&pool).await.unwrap();
+            let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('performance_candidates','performance_candidate_subjects','performance_candidature_summaries')").fetch_one(&pool).await.unwrap();
+            assert_eq!(count, 3);
+            let version: i64 =
+                sqlx::query_scalar("SELECT COUNT(*) FROM __scsms_migrations WHERE version=9")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(version, 1);
+        });
+    }
 }

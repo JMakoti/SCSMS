@@ -92,6 +92,7 @@ Run these from `database/` or with `pnpm --filter @scsms/db <script>` from the r
 
 ### SQLite
 
+
 ```powershell
 pnpm.cmd db:generate:sqlite
 pnpm.cmd db:migrate:sqlite

@@ -2,15 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   AlertTriangle,
   Building2,
   ChevronLeft,
@@ -611,131 +602,6 @@ function ReportPreviewBody({
   );
 }
 
-function TrendsTab({ school }: { school: string }) {
-  const { performanceRecords } = useFeatureData();
-  const schoolRecords = performanceRecords
-    .filter((record) => record.school === school)
-    .sort((a, b) => a.year.localeCompare(b.year));
-  const assessment = schoolRecords[0]?.assessmentType || "Assessment";
-  const chartData = schoolRecords
-    .filter((record) => record.averageScore !== null)
-    .map((record) => ({
-      year: record.year,
-      mean: record.averageScore ?? 0,
-    }));
-  const latest = chartData[chartData.length - 1]?.mean ?? 0;
-  const previous = chartData[chartData.length - 2]?.mean ?? latest;
-  const change = latest - previous;
-  const average = chartData.length
-    ? chartData.reduce((sum, value) => sum + value.mean, 0) / chartData.length
-    : 0;
-  const formattedChange = change.toFixed(1);
-  const formattedAverage = average.toFixed(1);
-  const formattedLatest = latest.toFixed(1);
-
-  return (
-    <section className="panel detail-panel performance-overview performance-overview-light">
-      <header className="performance-overview-heading">
-        <h2>{assessment} Trends</h2>
-        <p>Mean score against the year of the exam</p>
-      </header>
-      <section className="performance-trend-panel trends-line-panel">
-        <div className="performance-section-title trends-chart-heading">
-          <div>
-            <h3>Mean score by year</h3>
-            <p>Historical {assessment} examination performance</p>
-          </div>
-          <span className="trend-axis-note">
-            Y-axis: Mean score / X-axis: Exam year
-          </span>
-        </div>
-        <div className="trend-summary-grid">
-          {[
-            ["Current mean", formattedLatest, "Latest exam year"],
-            [
-              "Year change",
-              `${change >= 0 ? "+" : ""}${formattedChange}`,
-              "Measured against the recorded assessment scale",
-            ],
-            ["Average", formattedAverage, `${chartData.length} recorded assessments`],
-          ].map(([label, value, note]) => (
-            <div className="trend-summary-card" key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-              <small>{note}</small>
-            </div>
-          ))}
-        </div>
-        <div className="trend-chart-shell">
-          <div className="trend-chart-legend">
-            <span>
-              <i className="trend-legend-dot" aria-hidden="true" />
-              Mean score
-            </span>
-            <b>
-              {chartData.length
-                ? `${chartData[0].year} - ${chartData[chartData.length - 1].year}`
-                : "No assessment history"}
-            </b>
-          </div>
-          <div className="trend-chart-canvas h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData}
-                margin={{ top: 18, right: 22, left: 0, bottom: 10 }}
-              >
-                <CartesianGrid
-                  vertical={false}
-                  stroke="#dce5ef"
-                  strokeDasharray="3 7"
-                />
-                <XAxis
-                  dataKey="year"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                />
-                <YAxis
-                  domain={["auto", "auto"]}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  width={42}
-                />
-                <Tooltip
-                  cursor={{
-                    stroke: "#2563eb",
-                    strokeDasharray: "4 4",
-                  }}
-                  formatter={(value) => [value ?? 0, "Mean score"]}
-                />
-                <Line
-                  dataKey="mean"
-                  type="monotone"
-                  stroke="#2563eb"
-                  strokeWidth={4}
-                  dot={{
-                    r: 5,
-                    fill: "#ffffff",
-                    stroke: "#2563eb",
-                    strokeWidth: 2,
-                  }}
-                  activeDot={{
-                    r: 7,
-                    fill: "#2563eb",
-                    stroke: "#ffffff",
-                    strokeWidth: 2,
-                  }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </section>
-    </section>
-  );
-}
-
 function ReportInformationTab({ report }: { report: string }) {
   const { academicYears, currentAcademicYear } = useAcademicYear();
   const featureData = useFeatureData();
@@ -852,6 +718,7 @@ function ReportInformationTab({ report }: { report: string }) {
 export function DetailTabs({
   active,
   item,
+  schoolId,
   onTabChange,
   onSaveEnrollmentGrade,
   onSaveInfrastructureFacility,
@@ -864,6 +731,7 @@ export function DetailTabs({
 }: {
   active: string;
   item: string;
+  schoolId?: string;
   onTabChange?: (tab: string) => void;
   onSaveEnrollmentGrade?: (input: EnrollmentGradeSaveInput) => Promise<void>;
   onSaveInfrastructureFacility?: (
@@ -871,10 +739,10 @@ export function DetailTabs({
   ) => Promise<void>;
 } & InfrastructureProjectActions &
   ContactActions) {
-  const [tab, setTab] = useState("Overview");
+  const [selectedTab, setTab] = useState("Overview");
   const [termId, setTermId] = useState("");
   const { currentAcademicYear } = useAcademicYear();
-  const { performanceRecords, academicYears, terms } = useFeatureData();
+  const { terms } = useFeatureData();
   const currentYearTerms = terms.filter(
     (entry) => entry.academicYearId === currentAcademicYear.id,
   );
@@ -882,17 +750,7 @@ export function DetailTabs({
     currentYearTerms.find((entry) => entry.id === termId) ??
     currentYearTerms[0] ??
     null;
-  const assessmentTab =
-    performanceRecords.find((record) => record.school === item)
-      ?.assessmentName ?? "Assessment";
-  useEffect(() => {
-    if (
-      active === "School Performance" &&
-      !["Overview", assessmentTab, "Trends"].includes(tab)
-    ) {
-      setTab("Overview");
-    }
-  }, [active, assessmentTab, tab]);
+  const tab = active === "School Performance" ? "Overview" : selectedTab;
   const tabs =
     active === "Enrollment"
       ? ["Overview", "Enrollment"]
@@ -907,7 +765,7 @@ export function DetailTabs({
               : active === "Reports"
                 ? ["Overview", "Report information"]
                 : active === "School Performance"
-                  ? ["Overview", assessmentTab, "Trends"]
+                  ? ["Overview"]
                   : ["Overview"];
 
   const selectTab = (nextTab: string) => {
@@ -928,14 +786,11 @@ export function DetailTabs({
           </button>
         ))}
       </div>
-      {active === "School Performance" && tab === "Trends" && (
-        <TrendsTab school={item} />
-      )}
-      {active === "School Performance" &&
-        (tab === "Overview" || tab === assessmentTab) && (
+      {active === "School Performance" && (
           <PerformanceContent
             detail
             school={item}
+            schoolId={schoolId}
             overview={tab === "Overview"}
           />
         )}

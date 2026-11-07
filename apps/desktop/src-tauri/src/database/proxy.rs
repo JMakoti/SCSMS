@@ -1,5 +1,5 @@
 use serde_json::Value;
-use sqlx::{Column, Row, SqlitePool, TypeInfo};
+use sqlx::{Column, Row, SqlitePool, TypeInfo, ValueRef};
 
 #[tauri::command]
 pub async fn run_sql(
@@ -48,7 +48,7 @@ pub async fn run_sql(
             }))
         }
 
-        "all" | "values" => {
+        "all" | "values" | "objects" => {
             let rows = query
                 .fetch_all(pool.inner())
                 .await
@@ -56,8 +56,21 @@ pub async fn run_sql(
 
             let result = rows
                 .iter()
-                .map(row_to_json_array)
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|row| {
+                    let values = row_to_json_array(row)?;
+                    if method == "objects" {
+                        Ok(Value::Object(
+                            row.columns()
+                                .iter()
+                                .map(|column| column.name().to_string())
+                                .zip(values)
+                                .collect(),
+                        ))
+                    } else {
+                        Ok(Value::Array(values))
+                    }
+                })
+                .collect::<Result<Vec<_>, String>>()?;
 
             Ok(serde_json::json!({
                 "rows": result
@@ -89,7 +102,11 @@ fn row_to_json_array(row: &sqlx::sqlite::SqliteRow) -> Result<Vec<Value>, String
     let mut values = Vec::new();
 
     for column in row.columns() {
-        let type_name = column.type_info().name();
+        let raw = row
+            .try_get_raw(column.name())
+            .map_err(|error| error.to_string())?;
+        let info = raw.type_info();
+        let type_name = info.name();
 
         let value = match type_name {
             "INTEGER" => {
@@ -146,4 +163,21 @@ fn row_to_json_array(row: &sqlx::sqlite::SqliteRow) -> Result<Vec<Value>, String
     }
 
     Ok(values)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn aggregate_expressions_keep_numeric_types_and_nulls() {
+        tauri::async_runtime::block_on(async {
+            let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+            let row = sqlx::query("SELECT COUNT(*) AS total, AVG(value) AS mean, NULL AS missing FROM (SELECT 0.0 AS value UNION ALL SELECT 10.0)").fetch_one(&pool).await.unwrap();
+            let values = row_to_json_array(&row).unwrap();
+            assert_eq!(
+                values,
+                vec![serde_json::json!(2), serde_json::json!(5.0), Value::Null]
+            );
+        });
+    }
 }

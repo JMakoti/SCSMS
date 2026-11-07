@@ -4,6 +4,7 @@ export * from "./schema/dashboard";
 export * from "./schema/enrollment";
 export * from "./schema/infrastructure";
 export * from "./schema/performance";
+export * from "./schema/examinations";
 export * from "./schema/quality";
 export * from "./schema/reports";
 export * from "./schema/schools";

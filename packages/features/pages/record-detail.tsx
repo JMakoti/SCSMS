@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Button } from "@scsms/ui/components/button";
 import {
   BookOpen,
@@ -10,13 +10,11 @@ import {
   History,
   MapPinned,
   Pencil,
-  Plus,
   Server,
   Settings,
   Trash2,
   UserCog,
   Users,
-  X,
 } from "lucide-react";
 
 import { SettingsUpdatePanel } from "../updates/settings-update-panel";
@@ -58,6 +56,7 @@ type ContactActions = {
 export function RecordDetail({
   active,
   item,
+  schoolId: selectedSchoolId,
   onBack,
   wardId: persistedWardId,
   wardDetail,
@@ -75,6 +74,7 @@ export function RecordDetail({
 }: {
   active: string;
   item: string;
+  schoolId?: string;
   onBack: () => void;
   wardId?: string;
   wardDetail?: WardDetailRecord;
@@ -90,7 +90,6 @@ export function RecordDetail({
   const [selectedTab, setSelectedTab] = useState("Overview");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
   const { currentAcademicYear } = useAcademicYear();
   const {
     schools,
@@ -105,7 +104,7 @@ export function RecordDetail({
   } = useFeatureData();
   const schoolDetail = schools.find(
     (school) =>
-      school.displayName === item ||
+      selectedSchoolId ? school.id === selectedSchoolId : school.displayName === item ||
       school.officialName === item ||
       school.schoolCode === item,
   );
@@ -142,26 +141,6 @@ export function RecordDetail({
     row
       ? `${row.status} (${row.available.toLocaleString()} available)`
       : "Not recorded";
-  const defaultPerformanceLevel = item.toLowerCase().includes("junior")
-    ? "Junior Secondary"
-    : item.toLowerCase().includes("secondary") ||
-        item.toLowerCase().includes("senior")
-      ? "Senior School"
-      : "Primary";
-  const [performanceForm, setPerformanceForm] = useState({
-    assessment: "KPSEA",
-    academicYear: "",
-    level: defaultPerformanceLevel,
-    candidates: "",
-    meanScore: "",
-    subjects: "",
-    bestSubject: "",
-    exceedingCount: "",
-    meetingCount: "",
-    approachingCount: "",
-    belowCount: "",
-    notes: "",
-  });
   const reportDetail =
     active === "Reports"
       ? getReportTemplates(reportTemplates).find(
@@ -462,16 +441,6 @@ export function RecordDetail({
                     ["Status", reportDetail?.status ?? "Not configured"],
                   ];
 
-  const submitPerformanceDetails = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setShowPerformanceModal(false);
-  };
-  const candidatesCount = Number(performanceForm.candidates) || 0;
-  const calculatePerformancePercentage = (value: string) => {
-    const count = Number(value) || 0;
-    if (!candidatesCount) return "0%";
-    return `${Math.round((count / candidatesCount) * 100)}%`;
-  };
   const confirmDelete = async () => {
     setDeleteError("");
     if (active === "Staff") {
@@ -522,246 +491,6 @@ export function RecordDetail({
           error={deleteError}
         />
       )}
-      {showPerformanceModal && (
-        <div className="overlay">
-          <div
-            className="form-dialog performance-form-dialog"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="dialog-head">
-              <div>
-                <span className="eyebrow">School Performance</span>
-                <h2>Add performance details</h2>
-                <p>Capture assessment results and summary details.</p>
-              </div>
-              <button
-                className="icon-button"
-                type="button"
-                onClick={() => setShowPerformanceModal(false)}
-                aria-label="Close performance details form"
-              >
-                <X />
-              </button>
-            </div>
-            <form onSubmit={submitPerformanceDetails}>
-              <div className="form-section">
-                <h3>Performance details</h3>
-                <div className="form-grid">
-                  <label>
-                    Assessment
-                    <select
-                      value={performanceForm.assessment}
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          assessment: event.target.value,
-                        }))
-                      }
-                    >
-                      <option>KPSEA</option>
-                      <option>KJSEA</option>
-                      <option>KCSE</option>
-                    </select>
-                  </label>
-                  <label>
-                    Academic year
-                    <input
-                      value={performanceForm.academicYear}
-                      placeholder={currentAcademicYear.name}
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          academicYear: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Level
-                    <select
-                      value={performanceForm.level}
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          level: event.target.value,
-                        }))
-                      }
-                    >
-                      <option>Primary</option>
-                      <option>Junior Secondary</option>
-                      <option>Senior School</option>
-                    </select>
-                  </label>
-                  <label>
-                    Candidates
-                    <input
-                      type="number"
-                      min="0"
-                      value={performanceForm.candidates}
-                      placeholder="50"
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          candidates: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Mean score
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={performanceForm.meanScore}
-                      placeholder="9.30"
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          meanScore: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Subjects
-                    <input
-                      type="number"
-                      min="0"
-                      value={performanceForm.subjects}
-                      placeholder="12"
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          subjects: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Best subject
-                    <input
-                      value={performanceForm.bestSubject}
-                      placeholder="Mathematics"
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          bestSubject: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Exceeding expectation
-                    <input
-                      type="number"
-                      min="0"
-                      value={performanceForm.exceedingCount}
-                      placeholder="12"
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          exceedingCount: event.target.value,
-                        }))
-                      }
-                    />
-                    <span className="calculated-percentage">
-                      {calculatePerformancePercentage(
-                        performanceForm.exceedingCount,
-                      )}
-                    </span>
-                  </label>
-                  <label>
-                    Meeting expectation
-                    <input
-                      type="number"
-                      min="0"
-                      value={performanceForm.meetingCount}
-                      placeholder="24"
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          meetingCount: event.target.value,
-                        }))
-                      }
-                    />
-                    <span className="calculated-percentage">
-                      {calculatePerformancePercentage(
-                        performanceForm.meetingCount,
-                      )}
-                    </span>
-                  </label>
-                  <label>
-                    Approaching expectation
-                    <input
-                      type="number"
-                      min="0"
-                      value={performanceForm.approachingCount}
-                      placeholder="10"
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          approachingCount: event.target.value,
-                        }))
-                      }
-                    />
-                    <span className="calculated-percentage">
-                      {calculatePerformancePercentage(
-                        performanceForm.approachingCount,
-                      )}
-                    </span>
-                  </label>
-                  <label>
-                    Below expectation
-                    <input
-                      type="number"
-                      min="0"
-                      value={performanceForm.belowCount}
-                      placeholder="4"
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          belowCount: event.target.value,
-                        }))
-                      }
-                    />
-                    <span className="calculated-percentage">
-                      {calculatePerformancePercentage(
-                        performanceForm.belowCount,
-                      )}
-                    </span>
-                  </label>
-                  <label className="form-grid-full">
-                    Notes
-                    <textarea
-                      value={performanceForm.notes}
-                      onChange={(event) =>
-                        setPerformanceForm((current) => ({
-                          ...current,
-                          notes: event.target.value,
-                        }))
-                      }
-                      placeholder="Optional assessment notes"
-                    />
-                  </label>
-                </div>
-              </div>
-              <div className="dialog-footer">
-                <button
-                  className="outline-button"
-                  type="button"
-                  onClick={() => setShowPerformanceModal(false)}
-                >
-                  Cancel
-                </button>
-                <Button className="modal-primary-button" type="submit">
-                  Save performance details
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       <div className="breadcrumbs profile-crumb">
         <button onClick={onBack}>{active}</button>
         <span>/</span>
@@ -807,21 +536,12 @@ export function RecordDetail({
           </div>
         </div>
         <div className="profile-actions">
-          <ExportMenu
+          {active !== "School Performance" && <ExportMenu
             title={`${active} - ${active === "Audit Logs" ? auditLabel : item}`}
             filename={`${active.toLowerCase().replaceAll(" ", "-")}-detail`}
             headers={["Field", "Value"]}
             rows={fields.map(([label, value]) => [label, value])}
-          />
-          {active === "School Performance" && (
-            <Button
-              className="edit-school-button"
-              onClick={() => setShowPerformanceModal(true)}
-            >
-              <Plus data-icon="inline-start" />
-              Add performance details
-            </Button>
-          )}
+          />}
           {(active === "Settings" || active === "System Information") && (
             <Button
               className="edit-record-button"
@@ -838,6 +558,7 @@ export function RecordDetail({
             </Button>
           )}
           {active !== "Enrollment" &&
+            active !== "School Performance" &&
             active !== "Settings" &&
             active !== "System Information" && (
               <Button
@@ -874,6 +595,7 @@ export function RecordDetail({
       <DetailTabs
         active={active}
         item={item}
+        schoolId={selectedSchoolId}
         onTabChange={setSelectedTab}
         onSaveEnrollmentGrade={onSaveEnrollmentGrade}
         onSaveInfrastructureFacility={onSaveInfrastructureFacility}

@@ -10,7 +10,7 @@ pub struct AccountSession {
 }
 
 impl AccountSession {
-    fn user_id(&self) -> Result<String, String> {
+    pub(crate) fn user_id(&self) -> Result<String, String> {
         self.user_id
             .lock()
             .map_err(|_| "Account session unavailable.".to_string())?

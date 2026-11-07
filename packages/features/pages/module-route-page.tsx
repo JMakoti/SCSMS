@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { GenericPage } from "../pages/generic-page";
 import { routeForModule } from "../navigation/route-for-module";
 import { RecordDetail } from "./record-detail";
+import { PerformanceSchoolRegistry } from "../examinations/school-registry";
 import type { InfrastructureFacilitySaveInput } from "../schemas/infrastructure-facility-schema";
 import type {
   AddContactFormValues,
@@ -90,13 +91,15 @@ function ModuleRoutePageContent({
 } & InfrastructureProjectActions &
   ContactActions) {
   const router = useRouter();
-  const item = useSearchParams().get("item");
+  const query = useSearchParams();
+  const item = query.get("item");
 
   if (item) {
     return (
       <RecordDetail
         active={active}
         item={item}
+        schoolId={active === "School Performance" ? query.get("school") ?? undefined : undefined}
         onBack={() => router.push(routeForModule(active))}
         onSaveInfrastructureFacility={onSaveInfrastructureFacility}
         onCreateInfrastructureProject={onCreateInfrastructureProject}
@@ -110,6 +113,7 @@ function ModuleRoutePageContent({
     );
   }
 
+  if (active === "School Performance") return <PerformanceSchoolRegistry />;
   return (
     <GenericPage
       active={active}
