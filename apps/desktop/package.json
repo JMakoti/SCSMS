@@ -1,6 +1,6 @@
 {
   "name": "desktop",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "scripts": {
     "dev": "node ../../scripts/prepare-maplibre-worker.mjs && next dev --port 3001",
