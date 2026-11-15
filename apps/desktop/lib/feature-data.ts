@@ -335,6 +335,11 @@ export async function loadDesktopFeatureData(
       email: school.email,
       latitude: school.latitude,
       longitude: school.longitude,
+      locationAccuracy: school.locationAccuracy,
+      locationSource: school.locationSource,
+      locationVerified: school.locationVerified,
+      locationVerifiedAt: school.locationVerifiedAt,
+      locationVerifiedBy: school.locationVerifiedBy,
       sne: mapSne(school.sne),
       isActive: school.status === "active",
       dataConfidence: null,
@@ -610,6 +615,7 @@ export async function loadDesktopFeatureData(
       constituency: record.constituency,
       constituencyCode: record.constituencyCode,
       isActive: record.isActive,
+      boundaryGeojson: record.boundaryGeojson,
     })),
     wardOptions: wardRecords
       .filter((ward) => ward.isActive)

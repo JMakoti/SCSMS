@@ -140,6 +140,7 @@ export async function listWardSummaries(academicYearId: string) {
                 subCountyCode: details.subCounty?.subCountyCode ?? null,
                 constituency: details.subCounty?.constituency ?? null,
                 constituencyCode: details.subCounty?.constituencyCode ?? null,
+                boundaryGeojson: ward.boundaryGeojson,
                 schoolCount: details.schools.length,
                 publicSchools: details.schools.filter(
                     (school) => school.ownershipType === "goverment",

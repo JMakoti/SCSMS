@@ -9,6 +9,9 @@ const SCHOOL_CLUSTER_LEVEL_SCHEMA_VERSION: i64 = 6;
 const SCHOOL_LOGO_STORAGE_SCHEMA_VERSION: i64 = 7;
 const EXAMINATION_RESULTS_SCHEMA_VERSION: i64 = 8;
 const CANDIDATURE_SCHEMA_VERSION: i64 = 9;
+const GIS_LOCATION_SCHEMA_VERSION: i64 = 10;
+const GIS_LOCATION_SCHEMA_SQL: &str =
+    include_str!("../../../../../database/drizzle/sqlite/0009_clear_butterfly.sql");
 const CANDIDATURE_SCHEMA_SQL: &str =
     include_str!("../../../../../database/drizzle/sqlite/0008_needy_orphan.sql");
 const EXAMINATION_RESULTS_SCHEMA_SQL: &str =
@@ -132,6 +135,15 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {
             pool,
             CANDIDATURE_SCHEMA_VERSION,
             "bulk examination candidature",
+        )
+        .await?;
+    }
+    if !migration_exists(pool, GIS_LOCATION_SCHEMA_VERSION).await? {
+        apply_migration(pool, GIS_LOCATION_SCHEMA_SQL).await?;
+        record_migration(
+            pool,
+            GIS_LOCATION_SCHEMA_VERSION,
+            "GIS school location metadata and administrative boundaries",
         )
         .await?;
     }
