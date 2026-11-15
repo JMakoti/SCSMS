@@ -42,12 +42,36 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
+          $config = Get-Content "apps/desktop/src-tauri/tauri.conf.json" -Raw |
+            ConvertFrom-Json
+          $expected = $config.version
           if ("${{ github.ref_type }}" -eq "tag") {
-            $config = Get-Content "apps/desktop/src-tauri/tauri.conf.json" -Raw |
-              ConvertFrom-Json
             $expected = $tag -replace '^v', ''
-            if ($config.version -ne $expected) {
-              throw "Tag $tag does not match Tauri version $($config.version)"
+          }
+
+          $desktopPackage = Get-Content "apps/desktop/package.json" -Raw | ConvertFrom-Json
+          $webPackage = Get-Content "apps/web/package.json" -Raw | ConvertFrom-Json
+          $syncApiPackage = Get-Content "apps/sync-api/package.json" -Raw | ConvertFrom-Json
+          $databasePackage = Get-Content "database/package.json" -Raw | ConvertFrom-Json
+          $rootPackage = Get-Content "package.json" -Raw | ConvertFrom-Json
+          $cargoManifest = Get-Content "apps/desktop/src-tauri/Cargo.toml" -Raw
+          $cargoVersion = [regex]::Match(
+            $cargoManifest,
+            '(?m)^version\s*=\s*"([^"]+)"'
+          ).Groups[1].Value
+
+          $versions = [ordered]@{
+            "Tauri config" = $config.version
+            "Desktop Cargo manifest" = $cargoVersion
+            "Desktop package" = $desktopPackage.version
+            "Web package" = $webPackage.version
+            "Sync API package" = $syncApiPackage.version
+            "Database package" = $databasePackage.version
+            "Root package" = $rootPackage.version
+          }
+          foreach ($entry in $versions.GetEnumerator()) {
+            if ($entry.Value -ne $expected) {
+              throw "$($entry.Key) version $($entry.Value) does not match release version $expected"
             }
           }
 
