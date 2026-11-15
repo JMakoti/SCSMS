@@ -36,6 +36,7 @@ export type WardSummary = {
   seniorSecondarySchools: number;
   studentCount: number;
   teacherCount: number;
+  boundaryGeojson: string | null;
 };
 
 export type WardDetailRecord = Pick<
@@ -60,6 +61,7 @@ export type FeatureSubCounty = {
   constituency: string | null;
   constituencyCode: string | null;
   isActive: boolean;
+  boundaryGeojson: string | null;
 };
 
 export type FeatureWardOption = Pick<

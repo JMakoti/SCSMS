@@ -71,6 +71,13 @@
       "when": 1793686530419,
       "tag": "0009_chunky_doctor_octopus",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794046342103,
+      "tag": "0010_magenta_sally_floyd",
+      "breakpoints": true
     }
   ]
 }

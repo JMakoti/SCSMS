@@ -32,6 +32,7 @@ export const subcounty = pgTable(
     constituencyCode: text("constituency_code"),
 
     notes: text("notes"),
+    boundaryGeojson: text("boundary_geojson"),
 
     isActive: boolean("is_active")
       .notNull()
@@ -74,6 +75,7 @@ export const wards = pgTable(
     wardName: text("ward_name").notNull(),
 
     notes: text("notes"),
+    boundaryGeojson: text("boundary_geojson"),
 
     isActive: boolean("is_active")
       .notNull()

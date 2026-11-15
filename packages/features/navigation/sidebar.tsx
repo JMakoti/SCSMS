@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   BookOpen,
   Building2,
@@ -13,9 +14,11 @@ import {
   History,
   LayoutDashboard,
   MapPinned,
+  Map,
   RefreshCw,
   Settings,
   School,
+  Search,
   Server,
   UserCog,
   Users,
@@ -32,6 +35,7 @@ const navGroups = [
       ["Dashboard", LayoutDashboard],
       ["Schools", School],
       ["Ward", MapPinned],
+      ["GIS & Mapping", Map],
       ["School Contacts", BookOpen],
       ["Enrollment", Users],
       ["Staff", UserCog],
@@ -78,8 +82,18 @@ export function Sidebar({
   onCloseMobile?: () => void;
 }) {
   const pathname = usePathname();
+  const [search, setSearch] = useState("");
   const { pendingSyncCount } = useFeatureData();
   const current = active ?? moduleForPath(pathname);
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(([label]) =>
+        label.toLowerCase().includes(normalizedSearch),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
@@ -100,8 +114,20 @@ export function Sidebar({
           <X />
         </button>
       </div>
+      {!collapsed && (
+        <label className="sidebar-search">
+          <Search aria-hidden="true" />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search menu"
+            aria-label="Search navigation menu"
+          />
+        </label>
+      )}
       <div className="sidebar-scroll">
-        {navGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <div className="nav-group" key={group.label}>
             <div className="nav-label">{!collapsed && group.label}</div>
             {group.items.map(([label, Icon]) => (
@@ -126,6 +152,9 @@ export function Sidebar({
             ))}
           </div>
         ))}
+        {visibleGroups.length === 0 && !collapsed && (
+          <p className="sidebar-search-empty">No menu items found.</p>
+        )}
       </div>
       <div className="sidebar-footer">
         <button

@@ -54,6 +54,15 @@ export const schools = sqliteTable(
     }),
     latitude: real("latitude"),
     longitude: real("longitude"),
+    locationAccuracy: real("location_accuracy"),
+    locationSource: text("location_source", {
+      enum: ["gps", "manual", "import", "registry"],
+    }),
+    locationVerified: integer("location_verified", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    locationVerifiedAt: text("location_verified_at"),
+    locationVerifiedBy: text("location_verified_by"),
     wardId: text("ward_id")
       .notNull()
       .references(() => wards.id, { onDelete: "restrict" }),

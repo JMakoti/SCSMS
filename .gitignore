@@ -80,6 +80,8 @@ Cargo.lock
 .cache/
 .tmp/
 temp/
+apps/*/public/maplibre-gl-worker.mjs
+apps/*/public/maplibre-gl-shared.mjs
 
 # ============================================
 # Testing / Coverage

@@ -2,6 +2,7 @@ export const moduleRoutes: Record<string, string> = {
   Dashboard: "/",
   Schools: "/schools",
   Ward: "/ward",
+  "GIS & Mapping": "/gis",
   "School Contacts": "/contacts",
   Enrollment: "/enrollment",
   Staff: "/staff",

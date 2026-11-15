@@ -102,6 +102,11 @@ export type RabaiSchool = {
   email: string | null;
   latitude: number | null;
   longitude: number | null;
+  locationAccuracy?: number | null;
+  locationSource?: "gps" | "manual" | "import" | "registry" | null;
+  locationVerified?: boolean;
+  locationVerifiedAt?: string | null;
+  locationVerifiedBy?: string | null;
   sne: SneStatus;
   isActive: boolean;
   dataConfidence: DataConfidence | null;

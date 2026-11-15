@@ -1,6 +1,6 @@
 import { randomUUID } from "./uuid";
 import { relations, sql } from "drizzle-orm";
-import { index, integer, pgTable, real, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, real, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 import { contacts } from "./contact";
 import { enrollmentSnapshots } from "./enrollment";
 import { infrastructureProjects, infrastructureSnapshots } from "./infrastructure";
@@ -53,6 +53,13 @@ export const schools = pgTable(
     }),
     latitude: real("latitude"),
     longitude: real("longitude"),
+    locationAccuracy: real("location_accuracy"),
+    locationSource: text("location_source", {
+      enum: ["gps", "manual", "import", "registry"],
+    }),
+    locationVerified: boolean("location_verified").notNull().default(false),
+    locationVerifiedAt: timestamp("location_verified_at"),
+    locationVerifiedBy: varchar("location_verified_by", { length: 36 }),
     wardId: varchar("ward_id", { length: 36 })
       .notNull()
       .references(() => wards.id, { onDelete: "restrict" }),

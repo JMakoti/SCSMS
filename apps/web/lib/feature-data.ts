@@ -280,6 +280,11 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
       email: school.email,
       latitude: school.latitude,
       longitude: school.longitude,
+      locationAccuracy: school.locationAccuracy,
+      locationSource: school.locationSource,
+      locationVerified: school.locationVerified,
+      locationVerifiedAt: iso(school.locationVerifiedAt) || null,
+      locationVerifiedBy: school.locationVerifiedBy,
       sne: mapSne(school.sne),
       isActive: school.status === "active",
       dataConfidence: null,
@@ -448,6 +453,7 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
       subCountyCode: parentSubCounty?.subCountyCode ?? null,
       constituency: parentSubCounty?.constituency ?? null,
       constituencyCode: parentSubCounty?.constituencyCode ?? null,
+      boundaryGeojson: ward.boundaryGeojson,
       schoolCount: wardSchools.length,
       publicSchools: wardSchools.filter(
         (school) => school.ownershipType === "goverment",
@@ -597,6 +603,7 @@ export async function loadWebFeatureData(userId: string): Promise<FeatureData> {
         constituency: record.constituency,
         constituencyCode: record.constituencyCode,
         isActive: record.isActive,
+        boundaryGeojson: record.boundaryGeojson,
       })),
     wardOptions: wardRecords
       .filter((ward) => ward.isActive)
