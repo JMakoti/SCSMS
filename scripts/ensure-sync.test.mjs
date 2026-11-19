@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm, utimes } from "node:fs/promises";
 import { createServer } from "node:net";
 import { once } from "node:events";
 import { tmpdir } from "node:os";
@@ -18,7 +18,13 @@ test("concurrent app launches recover a stale lock and start only one background
     await new Promise((resolve) => reservation.close(resolve));
     await mkdir(path.join(root, "apps", "sync-api", "src"), { recursive: true });
     await mkdir(path.join(root, ".tmp"));
-    await writeFile(path.join(root, ".tmp", "sync-api-start.json"), JSON.stringify({ pid: 2147483647 }));
+    const lockPath = path.join(root, ".tmp", "sync-api-start.json");
+    // On Windows, also cover a PID reused by a live, unrelated Node process.
+    await writeFile(lockPath, JSON.stringify({ pid: process.platform === "win32" ? process.pid : 2147483647 }));
+    if (process.platform === "win32") {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await utimes(lockPath, yesterday, yesterday);
+    }
     await writeFile(path.join(root, "apps", "sync-api", "src", "server.mjs"), `
       import { createServer } from 'node:http';
       console.log('fixture-started');
@@ -41,7 +47,7 @@ test("concurrent app launches recover a stale lock and start only one background
     if (!pid) {
       try { pid = JSON.parse(await readFile(path.join(root, ".tmp", "sync-api-start.json"), "utf8")).pid; } catch {}
     }
-    if (pid && pid !== 2147483647) { try { process.kill(pid); } catch {} }
+    if (pid && pid !== 2147483647 && pid !== process.pid) { try { process.kill(pid); } catch {} }
     assert.equal(path.dirname(root), path.resolve(tmpdir()));
     assert.ok(path.basename(root).startsWith("scsms-autosync-"));
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

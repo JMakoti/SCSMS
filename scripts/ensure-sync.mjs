@@ -1,12 +1,14 @@
 import { readFile, mkdir, open, stat, unlink } from "node:fs/promises";
 import { openSync, closeSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { parseEnv } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
+import { promisify } from "node:util";
 
 const workspace = fileURLToPath(new URL("../", import.meta.url));
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const execFileAsync = promisify(execFile);
 
 async function ready(base, token) {
   try {
@@ -29,7 +31,25 @@ async function lockAlive(file) {
   try {
     const lock = JSON.parse(await readFile(file, "utf8"));
     if (!Number.isInteger(lock.pid) || lock.pid <= 0) return false;
-    try { process.kill(lock.pid, 0); return true; }
+    try {
+      process.kill(lock.pid, 0);
+      if (process.platform === "win32") {
+        // A PID can be reused after the sync API exits. Check that it still
+        // belongs to the Node process that existed when this lock was written.
+        try {
+          const { mtimeMs } = await stat(file);
+          const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
+            `$p = Get-Process -Id ${lock.pid} -ErrorAction Stop; Write-Output ($p.ProcessName + '|' + $p.StartTime.ToUniversalTime().ToString('o'))`],
+            { windowsHide: true, timeout: 5000 });
+          const [name, started] = stdout.trim().split("|");
+          const startedAt = Date.parse(started);
+          if (name.toLowerCase() !== "node" || (Number.isFinite(startedAt) && startedAt > mtimeMs + 2000)) return false;
+        } catch {
+          // If process details are unavailable, keep the live PID's lock.
+        }
+      }
+      return true;
+    }
     catch (error) { return error.code === "EPERM"; }
   } catch (error) {
     if (error.code === "ENOENT") return false;
