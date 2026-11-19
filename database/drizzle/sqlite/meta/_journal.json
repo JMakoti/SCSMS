@@ -71,6 +71,13 @@
       "when": 1794046342058,
       "tag": "0009_clear_butterfly",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795090759235,
+      "tag": "0010_spicy_medusa",
+      "breakpoints": true
     }
   ]
 }

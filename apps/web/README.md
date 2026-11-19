@@ -4,7 +4,7 @@ The browser app uses Next.js 16, React 19, shared SCSMS features, and PostgreSQL
 
 ## Setup And Development
 
-Run commands from the repository root. Create the root `.env` with `DATABASE_URL`, `SCSMS_ADMIN_PASSWORD` (at least 8 characters), and a random `SCSMS_SESSION_SECRET` of at least 32 characters, as shown in the project README.
+Run commands from the repository root. Create the root `.env` with `DATABASE_URL` and a random `SCSMS_SESSION_SECRET` of at least 32 characters, as shown in the project README.
 
 ```powershell
 pnpm.cmd install
@@ -13,7 +13,7 @@ pnpm.cmd --filter @scsms/db db:seed
 pnpm.cmd dev:web
 ```
 
-Open the URL printed by Next.js, normally http://localhost:3000. The initial email is `admin@scsms.go.ke`, with the password supplied to the PostgreSQL seed. Desktop SQLite is separate.
+Open the URL printed by Next.js, normally http://localhost:3000. No account is seeded. Sign in with an active account provisioned for the web database. Desktop SQLite is separate.
 
 ## Accounts And Profile
 

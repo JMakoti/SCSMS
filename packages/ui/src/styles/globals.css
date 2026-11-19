@@ -323,6 +323,38 @@
     font-size: 11px;
     font-weight: 700;
   }
+  .signup-shell { align-items: start; overflow: hidden; padding: 36px 24px; }
+  .signup-card { width: min(100%, 760px); padding: 32px 40px 36px; }
+  .signup-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .signup-header .login-brand { margin-bottom: 30px; }
+  .signup-back { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #58708e; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .signup-back svg { width: 15px; }
+  .signup-heading h1 { margin: 8px 0; color: #172b4d; font-size: 30px; letter-spacing: -.03em; }
+  .signup-heading p { margin: 0; color: #718096; font-size: 13px; line-height: 1.6; }
+  .signup-section { padding: 24px 0; border-bottom: 1px solid #e8eef5; }
+  .signup-section-heading { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 17px; }
+  .signup-section-heading > span { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 9px; background: #edf4ff; color: #2563eb; font-size: 11px; font-weight: 800; }
+  .signup-section-heading h2 { margin: 0; color: #243b59; font-size: 14px; }
+  .signup-section-heading p { margin: 4px 0 0; color: #8191a5; font-size: 11px; line-height: 1.5; }
+  .signup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .signup-grid label { display: block; min-width: 0; color: #334155; font-size: 11px; font-weight: 700; }
+  .signup-grid .login-input { margin-top: 7px; }
+  .signup-grid .login-input:has([aria-invalid="true"]) { border-color: #ef4444; }
+  .signup-full { grid-column: 1 / -1; }
+  .signup-optional { color: #94a3b8; font-weight: 400; }
+  .signup-field-error { display: block; margin: 7px 0 0; color: #b91c1c; font-size: 11px; line-height: 1.5; }
+  .signup-retry, .signup-actions p button { padding: 0; border: 0; background: transparent; color: #1d4ed8; font: inherit; font-weight: 700; cursor: pointer; }
+  .signup-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 22px; }
+  .signup-actions p { margin: 0; color: #718096; font-size: 12px; }
+  .signup-actions .login-submit { min-width: 180px; padding: 0 18px; }
+  @media (max-width: 600px) {
+    .signup-shell { padding: 16px; }
+    .signup-card { padding: 25px 22px; }
+    .signup-grid { grid-template-columns: 1fr; }
+    .signup-full { grid-column: auto; }
+    .signup-actions { align-items: stretch; flex-direction: column-reverse; }
+    .signup-actions .login-submit { width: 100%; }
+  }
   .login-input {
     display: flex;
     align-items: center;
@@ -342,7 +374,8 @@
     width: 16px;
     color: #8295ae;
   }
-  .login-input input {
+  .login-input input,
+  .login-input select {
     width: 100%;
     border: 0;
     outline: 0;

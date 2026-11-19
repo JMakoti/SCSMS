@@ -13,7 +13,6 @@ import {
 import { contacts } from "./contact";
 import { schools } from "./schools";
 import { users } from "./user";
-import { staff } from "./staff";
 
 export const subcounty = pgTable(
   "subcounty",
@@ -48,7 +47,7 @@ export const subcounty = pgTable(
   },
   (table) => ({
     codeIdx: uniqueIndex("subcounty_code_idx")
-      .on(table.countyCode),
+      .on(table.subCountyCode),
 
     nameIdx: index("subcounty_name_idx")
       .on(table.subCounty),
@@ -108,6 +107,7 @@ export const subCountyRelations = relations(
   subcounty,
   ({ many }) => ({
     wards: many(wards),
+    users: many(users),
   }),
 );
 
@@ -124,7 +124,5 @@ export const wardRelations = relations(
 
     schools: many(schools),
     contacts: many(contacts),
-    users: many(users),
-    staff: many(staff),
   }),
 );

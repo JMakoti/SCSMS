@@ -1,0 +1,108 @@
+{
+  "subCounties": [
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Kilifi North",
+      "subCountyCode": "00301",
+      "constituency": "Kilifi North",
+      "constituencyCode": "011",
+      "notes": "Kilifi North Sub-County",
+      "id": "35924e9a-56a7-5ded-9d52-713c52af4fca"
+    },
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Kilifi South",
+      "subCountyCode": "00302",
+      "constituency": "Kilifi South",
+      "constituencyCode": "012",
+      "notes": "Kilifi South Sub-County",
+      "id": "b752c923-a841-513a-a43b-67afb19d8f9b"
+    },
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Kaloleni",
+      "subCountyCode": "00303",
+      "constituency": "Kaloleni",
+      "constituencyCode": "013",
+      "notes": "Kaloleni Sub-County",
+      "id": "ac64ff15-69d4-57af-b794-56fd0cae2968"
+    },
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Rabai",
+      "subCountyCode": "00304",
+      "constituency": "Rabai",
+      "constituencyCode": "014",
+      "notes": "Rabai Sub-County",
+      "id": "a468ce29-608e-5b98-89eb-642af6bcc4c6"
+    },
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Ganze",
+      "subCountyCode": "00305",
+      "constituency": "Ganze",
+      "constituencyCode": "015",
+      "notes": "Ganze Sub-County",
+      "id": "55a03bff-8436-59b1-84ab-5488cdd502b6"
+    },
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Malindi",
+      "subCountyCode": "00306",
+      "constituency": "Malindi",
+      "constituencyCode": "016",
+      "notes": "Malindi Sub-County",
+      "id": "a8cf5fd5-1160-5208-96e8-b29a8d449daa"
+    },
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Magarini",
+      "subCountyCode": "00307",
+      "constituency": "Magarini",
+      "constituencyCode": "017",
+      "notes": "Magarini Sub-County",
+      "id": "ea2b1c99-7ef1-5e8d-aff5-576afe0c8fb8"
+    },
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Chonyi",
+      "subCountyCode": "00308",
+      "constituency": "Kilifi South",
+      "constituencyCode": "012",
+      "notes": "Chonyi Sub-County (carved out of Kilifi South Constituency)",
+      "id": "7c0780cb-7f92-5b9d-aa97-48026dff1e6d"
+    },
+    {
+      "county": "Kilifi",
+      "countyCode": "003",
+      "subCounty": "Kauma",
+      "subCountyCode": "00309",
+      "constituency": "Ganze",
+      "constituencyCode": "015",
+      "notes": "Kauma Sub-County (carved out of Ganze Constituency)",
+      "id": "ff5e4bdf-e8ac-51ef-a977-b112921264ab"
+    }
+  ],
+  "administratorRole": {
+    "id": "9d07531f-93b2-51ad-872f-3076ddee18d8",
+    "name": "administrator",
+    "description": "System administrator with full access to SCSMS.",
+    "permissionsJson": "[\"*\"]",
+    "isSystem": true
+  },
+  "scdeRole": {
+    "id": "ba3ba270-fe8c-513e-a873-5452dd3bb9e1",
+    "name": "scde",
+    "description": "Sub-county director of education.",
+    "permissionsJson": "[]",
+    "isSystem": true
+  }
+}

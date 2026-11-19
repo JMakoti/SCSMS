@@ -1,9 +1,39 @@
-use bcrypt::{hash, DEFAULT_COST};
+use serde::Deserialize;
 use sqlx::{Row, SqlitePool};
 use tauri::State;
 
-const ADMIN_EMAIL: &str = "admin@scsms.go.ke";
-const DEFAULT_ADMIN_PASSWORD: &str = "Admin@123";
+const REFERENCE_DATA: &str = include_str!("../../../../../database/src/seed/reference-data.json");
+const SYNC_RECONCILIATION_PREFIX: &str =
+    "Existing sync state requires coordinated seed ID reconciliation";
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Seeds {
+    sub_counties: Vec<SubCounty>,
+    administrator_role: Role,
+    scde_role: Role,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SubCounty {
+    id: String,
+    county: String,
+    county_code: String,
+    sub_county: String,
+    sub_county_code: String,
+    constituency: String,
+    constituency_code: String,
+    notes: String,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Role {
+    id: String,
+    name: String,
+    description: String,
+    permissions_json: String,
+    is_system: bool,
+}
 
 #[tauri::command]
 pub async fn seed_database(pool: State<'_, SqlitePool>) -> Result<(), String> {
@@ -11,205 +41,280 @@ pub async fn seed_database(pool: State<'_, SqlitePool>) -> Result<(), String> {
 }
 
 pub async fn seed_initial_data(pool: &SqlitePool) -> Result<(), String> {
-    seed_subcounty(pool).await?;
-    seed_administrator(pool).await?;
-    Ok(())
-}
-
-async fn seed_subcounty(pool: &SqlitePool) -> Result<(), String> {
-    let existing = sqlx::query(
-        r#"
-        SELECT id
-        FROM subcounty
-        WHERE sub_county_code = ?
-        LIMIT 1
-        "#,
-    )
-    .bind("00301")
-    .fetch_optional(pool)
-    .await
-    .map_err(|error| format!("Failed to check subcounty: {error}"))?;
-
-    if existing.is_some() {
-        return Ok(());
-    }
-
-    sqlx::query(
-        r#"
-        INSERT INTO subcounty (
-            id, county, county_code, sub_county, sub_county_code,
-            constituency, constituency_code, notes, is_active
+    let mut data: Seeds =
+        serde_json::from_str(REFERENCE_DATA).map_err(|e| format!("Invalid seed data: {e}"))?;
+    data.sub_counties
+        .sort_by_key(|x| x.sub_county_code != "00304");
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    for item in &data.sub_counties {
+        let rows = sqlx::query(
+            "SELECT id, sub_county_code FROM subcounty WHERE lower(sub_county) = lower(?)",
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#,
-    )
-    .bind(uuid::Uuid::new_v4().to_string())
-    .bind("Kilifi")
-    .bind("003")
-    .bind("Rabai")
-    .bind("00301")
-    .bind("Rabai")
-    .bind("00301")
-    .bind("Rabai Sub-County")
-    .bind(true)
-    .execute(pool)
-    .await
-    .map_err(|error| format!("Failed to create Rabai subcounty: {error}"))?;
-
-    Ok(())
-}
-
-async fn seed_administrator(pool: &SqlitePool) -> Result<(), String> {
-    let existing_role = sqlx::query(
-        r#"
-        SELECT id
-        FROM roles
-        WHERE name = ?
-        LIMIT 1
-        "#,
-    )
-    .bind("administrator")
-    .fetch_optional(pool)
-    .await
-    .map_err(|error| format!("Failed to check administrator role: {error}"))?;
-
-    let role_id: String = if let Some(role) = existing_role {
-        role.try_get("id")
-            .map_err(|error| format!("Failed to read administrator role ID: {error}"))?
-    } else {
-        let role_id = uuid::Uuid::new_v4().to_string();
-        sqlx::query(
-            r#"
-            INSERT INTO roles (id, name, description, permissions_json, is_system)
-            VALUES (?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(&role_id)
-        .bind("administrator")
-        .bind("System administrator with full access to SCSMS.")
-        .bind(r#"["*"]"#)
-        .bind(true)
-        .execute(pool)
+        .bind(&item.sub_county)
+        .fetch_all(&mut *tx)
         .await
-        .map_err(|error| format!("Failed to create administrator role: {error}"))?;
-        role_id
-    };
-
-    let active_subcounty = sqlx::query(
-        r#"
-        SELECT id
-        FROM subcounty
-        WHERE is_active = ?
-        LIMIT 1
-        "#,
-    )
-    .bind(true)
-    .fetch_optional(pool)
-    .await
-    .map_err(|error| format!("Failed to find active subcounty: {error}"))?;
-
-    let subcounty_id: String = match active_subcounty {
-        Some(row) => row
-            .try_get("id")
-            .map_err(|error| format!("Failed to read subcounty ID: {error}"))?,
-        None => {
-            return Err(
-                "No active sub-county found. Seed the sub-county before creating the administrator."
-                    .to_string(),
-            );
+        .map_err(|e| e.to_string())?;
+        if rows.len() > 1 {
+            return Err(format!(
+                "Multiple sub-counties named {}; resolve before seeding",
+                item.sub_county
+            ));
         }
-    };
-
-    let existing_admin = sqlx::query(
-        r#"
-        SELECT id
-        FROM users
-        WHERE email = ? OR role_id = ?
-        LIMIT 1
-        "#,
-    )
-    .bind(ADMIN_EMAIL)
-    .bind(&role_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|error| format!("Failed to check administrator account: {error}"))?;
-
-    if existing_admin.is_some() {
-        return Ok(());
+        let old = rows.first().map(|r| r.get::<String, _>("id"));
+        let legacy_rabai = item.sub_county_code == "00304"
+            && rows
+                .first()
+                .and_then(|r| r.get::<Option<String>, _>("sub_county_code"))
+                .as_deref()
+                == Some("00301");
+        let occupied =
+            sqlx::query("SELECT id FROM subcounty WHERE sub_county_code = ? AND id != ?")
+                .bind(&item.sub_county_code)
+                .bind(old.as_deref().unwrap_or(&item.id))
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+        if occupied.is_some() {
+            return Err(format!(
+                "Sub-county code {} belongs to another record",
+                item.sub_county_code
+            ));
+        }
+        match old {
+            Some(old) if old != item.id => {
+                let pending = sqlx::query("SELECT id FROM sync_queue WHERE status != 'synced' AND (record_id = ? OR instr(coalesce(payload_json, ''), ?) > 0) LIMIT 1").bind(&old).bind(&old).fetch_optional(&mut *tx).await.map_err(|e| e.to_string())?;
+                let sync_initialized: i64 = sqlx::query_scalar("SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name='__sync_subcounty_insert'").fetch_one(&mut *tx).await.map_err(|e| e.to_string())?;
+                if pending.is_some() || sync_initialized != 0 {
+                    // Keep the referenced ID, but free Kilifi North's code from
+                    // the incorrect legacy Rabai record. Sync triggers capture
+                    // the correction without modifying existing queued events.
+                    if legacy_rabai {
+                        sqlx::query("UPDATE subcounty SET sub_county_code = ?, constituency = ?, constituency_code = ? WHERE id = ?")
+                            .bind(&item.sub_county_code).bind(&item.constituency).bind(&item.constituency_code).bind(&old)
+                            .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+                    }
+                    log::warn!("{SYNC_RECONCILIATION_PREFIX}: {old}");
+                    continue;
+                }
+                sqlx::query("UPDATE subcounty SET sub_county_code = NULL WHERE id = ?")
+                    .bind(&old)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                sqlx::query("INSERT INTO subcounty (id, county, county_code, sub_county, sub_county_code, constituency, constituency_code, notes, boundary_geojson, is_active, created_at, updated_at) SELECT ?, county, county_code, sub_county, ?, constituency, constituency_code, notes, boundary_geojson, is_active, created_at, updated_at FROM subcounty WHERE id = ?").bind(&item.id).bind(&item.sub_county_code).bind(&old).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+                if legacy_rabai {
+                    sqlx::query(
+                        "UPDATE subcounty SET constituency = ?, constituency_code = ? WHERE id = ?",
+                    )
+                    .bind(&item.constituency)
+                    .bind(&item.constituency_code)
+                    .bind(&item.id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                }
+                sqlx::query("UPDATE wards SET sub_county_id = ? WHERE sub_county_id = ?")
+                    .bind(&item.id)
+                    .bind(&old)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                sqlx::query("UPDATE users SET subcounty_id = ? WHERE subcounty_id = ?")
+                    .bind(&item.id)
+                    .bind(&old)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                sqlx::query("UPDATE audit_logs SET entity_id = ? WHERE entity_type = 'subcounty' AND entity_id = ?").bind(&item.id).bind(&old).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+                sqlx::query("DELETE FROM subcounty WHERE id = ?")
+                    .bind(&old)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+            Some(_) => {
+                sqlx::query("UPDATE subcounty SET sub_county_code = ? WHERE id = ? AND sub_county_code IS NOT ?")
+                    .bind(&item.sub_county_code)
+                    .bind(&item.id)
+                    .bind(&item.sub_county_code)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+            None => {
+                sqlx::query("INSERT INTO subcounty (id, county, county_code, sub_county, sub_county_code, constituency, constituency_code, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(&item.id).bind(&item.county).bind(&item.county_code).bind(&item.sub_county).bind(&item.sub_county_code).bind(&item.constituency).bind(&item.constituency_code).bind(&item.notes).bind(true).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+            }
+        }
     }
-
-    let password = std::env::var("SCSMS_ADMIN_PASSWORD")
-        .unwrap_or_else(|_| DEFAULT_ADMIN_PASSWORD.to_string());
-    if password.len() < 8 {
-        return Err("SCSMS_ADMIN_PASSWORD must contain at least 8 characters.".to_string());
+    let role = &data.administrator_role;
+    let existing = sqlx::query("SELECT id FROM roles WHERE name = ?")
+        .bind(&role.name)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(row) = existing {
+        let old: String = row.get("id");
+        if old != role.id {
+            let pending = sqlx::query("SELECT id FROM sync_queue WHERE status != 'synced' AND (record_id = ? OR instr(coalesce(payload_json, ''), ?) > 0) LIMIT 1").bind(&old).bind(&old).fetch_optional(&mut *tx).await.map_err(|e| e.to_string())?;
+            let sync_initialized: i64 = sqlx::query_scalar("SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name='__sync_roles_insert'").fetch_one(&mut *tx).await.map_err(|e| e.to_string())?;
+            if pending.is_some() || sync_initialized != 0 {
+                log::warn!("{SYNC_RECONCILIATION_PREFIX}: {old}");
+            } else {
+                sqlx::query("UPDATE roles SET name = ? WHERE id = ?")
+                    .bind(format!("__seed_migration_{old}"))
+                    .bind(&old)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                sqlx::query("INSERT INTO roles (id, name, description, permissions_json, is_system, created_at, updated_at) SELECT ?, ?, description, permissions_json, is_system, created_at, updated_at FROM roles WHERE id = ?").bind(&role.id).bind(&role.name).bind(&old).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+                sqlx::query("UPDATE users SET role_id = ? WHERE role_id = ?")
+                    .bind(&role.id)
+                    .bind(&old)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                sqlx::query(
+                "UPDATE audit_logs SET entity_id = ? WHERE entity_type = 'roles' AND entity_id = ?",
+            )
+            .bind(&role.id)
+            .bind(&old)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+                sqlx::query("DELETE FROM roles WHERE id = ?")
+                    .bind(&old)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    } else {
+        sqlx::query("INSERT INTO roles (id, name, description, permissions_json, is_system) VALUES (?, ?, ?, ?, ?)").bind(&role.id).bind(&role.name).bind(&role.description).bind(&role.permissions_json).bind(role.is_system).execute(&mut *tx).await.map_err(|e| e.to_string())?;
     }
-
-    let password_hash = hash(password, DEFAULT_COST)
-        .map_err(|error| format!("Failed to hash administrator password: {error}"))?;
-
-    sqlx::query(
-        r#"
-        INSERT INTO users (
-            id, role_id, subcounty_id, name, email, password_hash, status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        "#,
-    )
-    .bind(uuid::Uuid::new_v4().to_string())
-    .bind(&role_id)
-    .bind(&subcounty_id)
-    .bind("System Administrator")
-    .bind(ADMIN_EMAIL)
-    .bind(password_hash)
-    .bind("active")
-    .execute(pool)
-    .await
-    .map_err(|error| format!("Failed to create administrator: {error}"))?;
-
-    Ok(())
+    let scde = &data.scde_role;
+    sqlx::query("INSERT INTO roles (id, name, description, permissions_json, is_system) VALUES (?, ?, ?, ?, ?) ON CONFLICT(name) DO NOTHING")
+        .bind(&scde.id).bind(&scde.name).bind(&scde.description).bind(&scde.permissions_json).bind(scde.is_system)
+        .execute(&mut *tx).await.map_err(|e| format!("Failed to seed SCDE role: {e}"))?;
+    tx.commit().await.map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::database::migrations::run_migrations;
 
     #[test]
-    fn startup_preserves_an_administrator_with_an_updated_email() {
+    fn startup_defers_reconciliation_without_changing_pending_data() {
         tauri::async_runtime::block_on(async {
             let pool = sqlx::sqlite::SqlitePoolOptions::new()
                 .max_connections(1)
                 .connect("sqlite::memory:")
                 .await
                 .unwrap();
-            sqlx::query("CREATE TABLE roles (id TEXT PRIMARY KEY, name TEXT)")
-                .execute(&pool)
-                .await
-                .unwrap();
-            sqlx::query("CREATE TABLE subcounty (id TEXT PRIMARY KEY, sub_county_code TEXT, is_active INTEGER)").execute(&pool).await.unwrap();
-            sqlx::query("CREATE TABLE users (id TEXT PRIMARY KEY, role_id TEXT, email TEXT)")
-                .execute(&pool)
-                .await
-                .unwrap();
-            sqlx::query("INSERT INTO roles VALUES ('admin-role', 'administrator')")
-                .execute(&pool)
-                .await
-                .unwrap();
-            sqlx::query("INSERT INTO subcounty VALUES ('area', '00301', 1)")
-                .execute(&pool)
-                .await
-                .unwrap();
-            sqlx::query(
-                "INSERT INTO users VALUES ('officer', 'admin-role', 'updated@example.com')",
+            run_migrations(&pool).await.unwrap();
+            sqlx::query("INSERT INTO subcounty (id, county, county_code, sub_county, sub_county_code) VALUES ('old-area', 'Kilifi', '003', 'Rabai', '00301')").execute(&pool).await.unwrap();
+            crate::database::sync::initialize(&pool).await.unwrap();
+            sqlx::query("INSERT INTO sync_queue (id, table_name, record_id, operation, payload_json, status) VALUES ('event', 'users', 'user', 'update', '{\"subcounty_id\":\"old-area\"}', 'failed')").execute(&pool).await.unwrap();
+
+            seed_initial_data(&pool).await.unwrap();
+            let area: (String, String) = sqlx::query_as(
+                "SELECT id, sub_county_code FROM subcounty WHERE sub_county='Rabai'",
             )
-            .execute(&pool)
+            .fetch_one(&pool)
             .await
             .unwrap();
-            seed_initial_data(&pool).await.unwrap();
-            let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+            assert_eq!(area, ("old-area".into(), "00304".into()));
+            let count: i64 =
+                sqlx::query_scalar("SELECT COUNT(*) FROM subcounty WHERE is_active = 1")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(count, 9);
+            let north: String = sqlx::query_scalar(
+                "SELECT sub_county FROM subcounty WHERE sub_county_code='00301'",
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            assert_eq!(north, "Kilifi North");
+            let event: (String, String) =
+                sqlx::query_as("SELECT payload_json, status FROM sync_queue WHERE id='event'")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(
+                event,
+                ("{\"subcounty_id\":\"old-area\"}".into(), "failed".into())
+            );
+            sqlx::query("UPDATE sync_queue SET status='synced' WHERE id='event'")
+                .execute(&pool)
+                .await
+                .unwrap();
+            let queue_before: i64 = sqlx::query_scalar("SELECT count(*) FROM sync_queue")
                 .fetch_one(&pool)
                 .await
                 .unwrap();
-            assert_eq!(count, 1);
+            seed_initial_data(&pool).await.unwrap();
+            let queue_after: i64 = sqlx::query_scalar("SELECT count(*) FROM sync_queue")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(queue_before, queue_after);
+            let unchanged: String =
+                sqlx::query_scalar("SELECT id FROM subcounty WHERE sub_county='Rabai'")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(unchanged, "old-area");
+        });
+    }
+
+    #[test]
+    fn seeds_stable_ids_and_preserves_legacy_references() {
+        tauri::async_runtime::block_on(async {
+            let pool = sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect("sqlite::memory:")
+                .await
+                .unwrap();
+            run_migrations(&pool).await.unwrap();
+            sqlx::query("INSERT INTO subcounty (id, county, county_code, sub_county, sub_county_code) VALUES ('old-area', 'Kilifi', '003', 'Rabai', '00301')").execute(&pool).await.unwrap();
+            sqlx::query("INSERT INTO roles (id, name) VALUES ('old-role', 'administrator')")
+                .execute(&pool)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO users (id, role_id, subcounty_id, name, email, password_hash) VALUES ('user', 'old-role', 'old-area', 'Test', 'test@example.org', 'hash')").execute(&pool).await.unwrap();
+            seed_initial_data(&pool).await.unwrap();
+            seed_initial_data(&pool).await.unwrap();
+            let data: Seeds = serde_json::from_str(REFERENCE_DATA).unwrap();
+            let scde_id: String = sqlx::query_scalar("SELECT id FROM roles WHERE name='scde'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(scde_id, data.scde_role.id);
+            let rabai = data
+                .sub_counties
+                .iter()
+                .find(|x| x.sub_county_code == "00304")
+                .unwrap();
+            let row = sqlx::query("SELECT role_id, subcounty_id FROM users WHERE id = 'user'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(row.get::<String, _>("role_id"), data.administrator_role.id);
+            assert_eq!(row.get::<String, _>("subcounty_id"), rabai.id);
+            let count: i64 = sqlx::query_scalar("SELECT count(*) FROM subcounty")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+            assert_eq!(count, 9);
+            let north: String = sqlx::query_scalar(
+                "SELECT sub_county FROM subcounty WHERE sub_county_code = '00301'",
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            assert_eq!(north, "Kilifi North");
         });
     }
 }

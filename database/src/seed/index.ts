@@ -10,11 +10,12 @@ dotenv.config({
 });
 
 const { seedSubCounties } = await import("./subcounty.seed");
-const { seedAdministrator } = await import("./user.seed");
+const { seedAdministratorRole, seedScdeRole } = await import("./role.seed");
 
 async function main() {
   await seedSubCounties();
-  await seedAdministrator();
+  await seedAdministratorRole();
+  await seedScdeRole();
 }
 
 main()

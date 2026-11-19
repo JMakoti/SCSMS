@@ -40,7 +40,7 @@ src-tauri/
 2. Enables logging in debug builds.
 3. Creates a SQLite pool for `sqlite:scsms.db`.
 4. Runs local schema migrations.
-5. Seeds the initial administrator and required sub-county record. It does not seed ward records.
+5. Seeds the administrator role and required sub-county record. It does not seed users or ward records.
 6. Stores the pool in Tauri managed state.
 7. Registers commands used by the frontend.
 
@@ -100,7 +100,7 @@ The registered `store_school_logo` and `resolve_school_logo_path` commands manag
 
 ## Initial records
 
-`src/database/seed.rs` creates the required Rabai sub-county, administrator role, and `admin@scsms.go.ke` user when they are missing. Ward records are not seeded; create them manually from the Ward page. The password uses the process environment variable `SCSMS_ADMIN_PASSWORD` when configured or falls back to `Admin@123`. Rust does not automatically load the root `.env`. Existing administrators are recognised by email or administrator role, and their passwords are preserved. The web app uses its own PostgreSQL database; the PostgreSQL seed command does not populate desktop SQLite.
+`src/database/seed.rs` creates the Rabai subcounty and administrator role when missing. It does not create user accounts. New sign-ups must be activated in the local database before sign-in. Ward records are not seeded; create them from the Ward page. The web app uses a separate PostgreSQL database.
 
 ## Commands
 

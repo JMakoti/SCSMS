@@ -67,7 +67,7 @@ On startup, the Tauri backend:
 3. Seeds required initial records.
 4. Registers the database pool as Tauri managed state.
 
-Startup inserts the Rabai sub-county and administrator role/user only when they do not already exist. The web app's PostgreSQL database is separate and is not automatically copied into desktop SQLite.
+Startup inserts the shared sub-counties and the administrator and SCDE roles when they do not already exist. It does not create user accounts. The web app's PostgreSQL database is separate and is not automatically copied into desktop SQLite.
 School creation writes through `repository/school.ts`; an optional logo selected in the desktop dialog is copied into the Tauri app-data `school-logos` directory, and only its managed file path is stored in the school's `logo_path`.
 Creating a school also initializes zero-count enrollment rows for each grade in its level across Terms 1-3 of the current academic year. If no academic year exists, the current calendar year is created and activated first.
 
@@ -140,14 +140,7 @@ cargo test --lib
 
 ## Accounts And Profile
 
-The initial email is `admin@scsms.go.ke`. Rust uses the process environment variable `SCSMS_ADMIN_PASSWORD` (at least 8 characters), falling back to `Admin@123` for an unseeded database. To set it before first startup, run these commands from the repository root:
-
-```powershell
-$env:SCSMS_ADMIN_PASSWORD = "replace-with-your-bootstrap-password"
-pnpm.cmd dev:desktop
-```
-
-The root `.env` is not automatically loaded into native Rust. Startup preserves an existing administrator and password, recognising the account by email or administrator role.
+No account is seeded. Sign up to create an inactive SCDE account; an administrator must activate it before sign-in. Startup seeds the administrator and SCDE roles and the shared sub-counties. The SCDE role starts with no explicit permissions.
 
 After login, records and academic years load together with background retries and a plain loading message. Refresh failures keep the loaded dashboard visible.
 
@@ -168,3 +161,9 @@ Automatic updates default to on, including for installations using the previous 
 - 🔌 The app uses the custom Tauri `run_sql` command rather than `tauri-plugin-sql`.
 - 🧬 Keep database schema changes in sync with the shared `database/` package and generated SQLite migration SQL.
 - 💾 Desktop login identity stays in React and native in-memory state. Older saved-login data is cleared, and closing/reopening or reloading requires sign-in again.
+# Account verification
+
+An active administrator can open **Users & Roles** to review inactive accounts, activate them, lock or unlock accounts, change roles, and delete accounts. Unlocking changes an account to inactive; it must then be verified before sign-in. Administrators cannot change or delete their own account from this page. Actions are recorded in the audit log. Inactive includes both new requests and accounts previously deactivated. Accounts created on another database must first reach this desktop through synchronization. A working administrator account must already exist; the seed does not create one.
+
+SCDE and other non-administrator accounts see the previous Users & Roles view; account-management actions remain available only to administrators.
+

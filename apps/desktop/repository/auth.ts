@@ -19,3 +19,12 @@ export async function loginWithLocalAccount(values: LoginFormValues) {
 export async function logoutLocalAccount() {
   if (isTauri()) await invoke("logout");
 }
+
+export async function loadSignupOptions() {
+  if (!isTauri()) throw new Error("Open the desktop application to create an account.");
+  return invoke<import("@scsms/features/auth/login-page").SignupOptions>("signup_options");
+}
+export async function signup(values: import("@scsms/features/auth/login-page").SignupValues) {
+  if (!isTauri()) throw new Error("Open the desktop application to create an account.");
+  await invoke("signup", { values });
+}

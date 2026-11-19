@@ -15,12 +15,13 @@ import {
   clearSessionUser,
   type SessionUser,
 } from "../session-user";
+import { DesktopRoleContext } from "../session-context";
 import {
   closeAcademicYear,
   createAcademicYear,
   setCurrentAcademicYear,
 } from "@/repository/academic-year";
-import { loginWithLocalAccount, logoutLocalAccount } from "@/repository/auth";
+import { loginWithLocalAccount, logoutLocalAccount, loadSignupOptions, signup } from "@/repository/auth";
 import {
   createSchool,
   updateSchool,
@@ -154,7 +155,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   if (!sessionUser) {
     return (
       <>
-        <LoginPage authenticate={loginWithLocalAccount} onLogin={login} />
+        <LoginPage loadSignupOptions={loadSignupOptions} signup={signup} authenticate={loginWithLocalAccount} onLogin={login} />
         <style jsx global>
           {globalStyles}
         </style>
@@ -194,7 +195,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             onMenu={() => setMobileNavPath(pathname)}
             onLogout={logout}
           />
-          {children}
+          <DesktopRoleContext.Provider value={sessionUser.roleName ?? null}>
+            {children}
+          </DesktopRoleContext.Provider>
         </div>
         {dialog === "search" && (
           <SearchDialog

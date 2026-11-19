@@ -1,1 +1,1 @@
-ALTER TABLE "schools" ADD COLUMN "cluster_level" text;
+ALTER TABLE "schools" ADD COLUMN IF NOT EXISTS "cluster_level" text;

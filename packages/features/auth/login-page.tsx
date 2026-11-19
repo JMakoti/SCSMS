@@ -14,8 +14,12 @@ import {
   School,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
+import { SignupPage } from "./signup-page";
 import { loginSchema } from "../schemas/login-schema";
 import type { LoginFormValues } from "../types/forms";
+
+export type SignupValues = { name: string; email: string; phone: string; password: string; subcountyId: string };
+export type SignupOptions = { subcounties: { id: string; name: string }[] };
 
 type LoginUser = {
   email: string;
@@ -25,11 +29,17 @@ export function LoginPage({
   authenticate,
   onLogin,
   errorMessage = "",
+  loadSignupOptions,
+  signup,
 }: {
   authenticate?: (values: LoginFormValues) => Promise<LoginUser>;
   onLogin: (user: LoginUser) => void;
   errorMessage?: string;
+  loadSignupOptions?: () => Promise<SignupOptions>;
+  signup?: (values: SignupValues) => Promise<void>;
 }) {
+  const [creating, setCreating] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const {
@@ -53,15 +63,11 @@ export function LoginPage({
       return;
     }
 
-    // if (
-    //   values.email === "admin@scsms.go.ke" &&
-    //   values.password === "Admin@123"
-    // ) {
     onLogin({ email: values.email });
-    //   return;
-    // }
-    // setError("Use the demo credentials shown below.");
   };
+  if (creating && loadSignupOptions && signup) {
+    return <SignupPage loadOptions={loadSignupOptions} signup={signup} onBack={() => setCreating(false)} onSuccess={() => { setSuccess(true); setCreating(false); }} />;
+  }
   return (
     <main className="login-shell">
       <div className="login-card">
@@ -117,18 +123,15 @@ export function LoginPage({
             {isSubmitting ? "Signing in..." : "Sign in"} <ChevronRight />
           </button>
         </form>
-        <Link className="login-database-link" href="/database-test">
+        {success && <p role="status">Account created. Ask an administrator to activate it before signing in.</p>}
+        {loadSignupOptions && signup && <p className="mt-10">Don't have an account? <button type="button" style={{ color: "#2563eb" }} onClick={() => { setSuccess(false); setCreating(true); }}>Create an account</button></p>}
+        {/* <Link className="login-database-link" href="/database-test">
           <span>
             <Database />
             Database test
           </span>
           <ArrowUpRight />
-        </Link>
-        <div className="login-demo">
-          <strong>Demo credentials</strong>
-          <span>Email: admin@scsms.go.ke</span>
-          <span>Password: Admin@123</span>
-        </div>
+        </Link> */}
         <p className="login-footer">SC-SMS · Education records management</p>
       </div>
     </main>

@@ -4,7 +4,6 @@ import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqli
 import { contacts } from "./contact";
 import { schools } from "./schools";
 import { users } from "./user";
-import { staff } from "./staff";
 
 export const subcounty = sqliteTable(
   "subcounty",
@@ -23,7 +22,7 @@ export const subcounty = sqliteTable(
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
-    codeIdx: uniqueIndex("subcounty_code_idx").on(table.countyCode),
+    codeIdx: uniqueIndex("subcounty_code_idx").on(table.subCountyCode),
     nameIdx: index("subcounty_name_idx").on(table.subCounty),
   }),
 );
@@ -60,6 +59,7 @@ export const subCountyRelations = relations(
   subcounty,
   ({ many }) => ({
     wards: many(wards),
+    users: many(users),
   }),
 );
 
@@ -73,7 +73,5 @@ export const wardRelations = relations(
 
     schools: many(schools),
     contacts: many(contacts),
-    users: many(users),
-    staff: many(staff),
   }),
 );

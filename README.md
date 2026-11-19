@@ -54,13 +54,11 @@ Create a root `.env` file:
 
 ```env
 DATABASE_URL=postgresql://username:password@localhost:5432/scsms
-SCSMS_ADMIN_PASSWORD=replace-with-your-bootstrap-password
 SCSMS_SESSION_SECRET=replace-with-a-random-secret-of-at-least-32-characters
 ```
 
-`DATABASE_URL` is used by the Postgres database client and seed scripts. `SCSMS_ADMIN_PASSWORD` is used for the PostgreSQL administrator seed. `SCSMS_SESSION_SECRET` signs the web app's HTTP-only authentication cookie and must be a random value of at least 32 characters.
+`DATABASE_URL` is used by the Postgres database client and seed scripts. `SCSMS_SESSION_SECRET` signs the web app's HTTP-only authentication cookie and must be a random value of at least 32 characters.
 
-The PostgreSQL seed password must contain at least 8 characters. Native Rust startup reads process environment variables; it does not automatically load this root `.env`. See [desktop setup](apps/desktop/README.md) for its initial account.
 
 ## Install
 
@@ -158,14 +156,9 @@ cargo test --lib
 - [Tauri backend](apps/desktop/src-tauri/README.md)
 - [Database package](database/README.md)
 
-## Default Login
+## Accounts
 
-```text
-Email: admin@scsms.go.ke
-Desktop initial password: Admin@123 (unless SCSMS_ADMIN_PASSWORD is set)
-```
-
-For the web app, use the password supplied to the PostgreSQL seed. Existing administrator accounts and their passwords are preserved when seeding runs again.
+No user account is seeded. Sign up to create an account. New accounts are inactive and must be activated in the database before they can sign in; there is currently no activation control in the app. PostgreSQL and desktop SQLite maintain separate accounts.
 
 The desktop app also includes `/database-test` for checking the local Tauri SQLite bridge, current user, and active sub-county.
 

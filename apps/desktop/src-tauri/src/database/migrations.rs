@@ -10,6 +10,9 @@ const SCHOOL_LOGO_STORAGE_SCHEMA_VERSION: i64 = 7;
 const EXAMINATION_RESULTS_SCHEMA_VERSION: i64 = 8;
 const CANDIDATURE_SCHEMA_VERSION: i64 = 9;
 const GIS_LOCATION_SCHEMA_VERSION: i64 = 10;
+const SUBCOUNTY_CODE_SCHEMA_VERSION: i64 = 11;
+const SUBCOUNTY_CODE_SCHEMA_SQL: &str =
+    include_str!("../../../../../database/drizzle/sqlite/0010_spicy_medusa.sql");
 const GIS_LOCATION_SCHEMA_SQL: &str =
     include_str!("../../../../../database/drizzle/sqlite/0009_clear_butterfly.sql");
 const CANDIDATURE_SCHEMA_SQL: &str =
@@ -144,6 +147,15 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {
             pool,
             GIS_LOCATION_SCHEMA_VERSION,
             "GIS school location metadata and administrative boundaries",
+        )
+        .await?;
+    }
+    if !migration_exists(pool, SUBCOUNTY_CODE_SCHEMA_VERSION).await? {
+        apply_migration(pool, SUBCOUNTY_CODE_SCHEMA_SQL).await?;
+        record_migration(
+            pool,
+            SUBCOUNTY_CODE_SCHEMA_VERSION,
+            "unique sub-county codes",
         )
         .await?;
     }

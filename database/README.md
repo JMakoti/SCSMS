@@ -80,11 +80,10 @@ Required values:
 
 ```env
 DATABASE_URL=postgresql://username:password@localhost:5432/scsms
-SCSMS_ADMIN_PASSWORD=replace-with-your-bootstrap-password
 SCSMS_SESSION_SECRET=replace-with-a-random-secret-of-at-least-32-characters
 ```
 
-`DATABASE_URL` is required by `src/postgres.ts` and all Postgres Drizzle commands. `SCSMS_ADMIN_PASSWORD` is required by the administrator seed, must contain at least 8 characters, and is hashed before storage. `SCSMS_SESSION_SECRET` is required by the web app for signing its authenticated session cookie and must be a random value of at least 32 characters.
+`DATABASE_URL` is required by `src/postgres.ts` and all Postgres Drizzle commands. `SCSMS_SESSION_SECRET` is required by the web app for signing its authenticated session cookie and must be a random value of at least 32 characters.
 
 ## Scripts
 
@@ -129,17 +128,11 @@ It performs these steps:
 
 1. Loads root `.env`.
 2. Seeds the Rabai sub-county if it does not already exist.
-3. Creates the `administrator` role if it does not already exist.
-4. Creates the default administrator user if it does not already exist.
+3. Creates the `administrator` and `scde` roles if they do not already exist. The SCDE role starts with no explicit permissions.
 
-Default administrator:
+The seed does not create user accounts. Desktop startup applies the same reference data through its Rust seeder.
 
-```text
-Email: admin@scsms.go.ke
-Password: value of SCSMS_ADMIN_PASSWORD
-```
-
-The seed is idempotent. Existing administrator accounts are recognised by email or administrator role, and their credentials are preserved. Desktop startup performs its own independent Rust seed.
+PostgreSQL and desktop use the fixed IDs and reference records in `src/seed/reference-data.json`. Desktop reads this file at build time. Existing roles and sub-counties can be reconciled by name, with user and ward references updated transactionally. On desktop, pending sync entries or an already initialized sync system defer affected ID changes; other missing reference records are still inserted. The legacy Rabai code is corrected while its old ID and queued events are preserved. Existing synchronized installations require a coordinated ID migration; syncing the queue alone does not complete that migration. Back up and coordinate across devices before reconciling, as cloud data and external integrations may still refer to old IDs. Conflicting names or codes must be resolved before seeding.
 
 ## Schema Areas
 
@@ -238,6 +231,4 @@ pnpm.cmd --filter @scsms/db db:seed
 ## Troubleshooting
 
 - `DATABASE_URL is not defined`: add `DATABASE_URL` to the root `.env`.
-- `SCSMS_ADMIN_PASSWORD environment variable is required`: add `SCSMS_ADMIN_PASSWORD` to the root `.env`.
-- Password length error: use at least 8 characters.
 - Desktop data missing: the desktop app uses its own local SQLite database through Tauri; package `db:seed` seeds PostgreSQL, not the desktop SQLite file.

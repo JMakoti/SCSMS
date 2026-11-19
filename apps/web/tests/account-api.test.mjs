@@ -127,20 +127,3 @@ test("password validation rejects mismatches, reuse, short passwords, and overlo
   ]) assert.equal(schemas.changePasswordSchema.safeParse(values).success, false);
 });
 
-test("Postgres seeding recognises an administrator by role after their email changes", async () => {
-  const records = [[{ id: "administrator-role" }], [{ id: "area" }], [{ id: "renamed-user" }]];
-  const conditions = [];
-  const db = { select: () => ({ from: () => ({ where: (condition) => {
-    conditions.push(condition);
-    return { limit: async () => records.shift() };
-  } }) }) };
-  const { seedAdministrator } = compile("../../../database/src/seed/user.seed.ts", {
-    "bcryptjs": bcrypt,
-    "drizzle-orm": { eq: (field, value) => ({ field, value }), or: (...clauses) => ({ or: clauses }) },
-    "../postgres": { db },
-    "../postgress-schemas/subcounty_ward": { subcounty: fields },
-    "../postgress-schemas/user": { roles: fields, users: fields },
-  });
-  await seedAdministrator();
-  assert.ok(conditions[2].or.some((condition) => condition.field === "roleId" && condition.value === "administrator-role"));
-});

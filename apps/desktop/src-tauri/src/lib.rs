@@ -61,6 +61,12 @@ pub fn run() {
         // Register application commands
         .invoke_handler(tauri::generate_handler![
             database::auth::login,
+            database::auth::signup_options,
+            database::auth::signup,
+            database::account_review::review_accounts,
+            database::account_review::account_review_options,
+            database::account_review::manage_reviewed_account,
+            database::account_review::activate_account,
             database::auth::logout,
             database::examinations::examination_access,
             database::examinations::save_school_examination,

@@ -36,6 +36,93 @@ pub struct LoginUser {
     permissions: Vec<String>,
 }
 
+#[derive(Serialize)]
+struct SignupOption {
+    id: String,
+    name: String,
+}
+#[derive(Serialize)]
+pub struct SignupOptions {
+    subcounties: Vec<SignupOption>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SignupRequest {
+    name: String,
+    email: String,
+    phone: String,
+    password: String,
+    subcounty_id: String,
+}
+
+#[tauri::command]
+pub async fn signup_options(pool: State<'_, SqlitePool>) -> Result<SignupOptions, String> {
+    let areas = sqlx::query("SELECT id, COALESCE(sub_county, 'Unnamed subcounty') AS name FROM subcounty WHERE is_active = 1 ORDER BY name").fetch_all(pool.inner()).await.map_err(|_| "Unable to load subcounties.")?;
+    let convert = |rows: Vec<sqlx::sqlite::SqliteRow>| -> Result<Vec<SignupOption>, String> {
+        rows.into_iter()
+            .map(|row| {
+                Ok(SignupOption {
+                    id: row.try_get("id").map_err(|_| "Invalid option.")?,
+                    name: row.try_get("name").map_err(|_| "Invalid option.")?,
+                })
+            })
+            .collect()
+    };
+    Ok(SignupOptions {
+        subcounties: convert(areas)?,
+    })
+}
+
+#[tauri::command]
+pub async fn signup(pool: State<'_, SqlitePool>, values: SignupRequest) -> Result<(), String> {
+    create_signup(pool.inner(), values).await
+}
+
+async fn create_signup(pool: &SqlitePool, values: SignupRequest) -> Result<(), String> {
+    let name = values.name.trim();
+    let email = values.email.trim().to_lowercase();
+    let phone = values.phone.trim();
+    if name.is_empty()
+        || name.len() > 200
+        || email.len() > 320
+        || !email.contains('@')
+        || phone.len() > 40
+        || values.password.chars().count() < 8
+        || values.password.len() > 72
+        || values.subcounty_id.len() > 36
+    {
+        return Err("Enter valid account details. Passwords must contain 8 to 72 bytes.".into());
+    }
+    let role_id: String = sqlx::query_scalar("SELECT id FROM roles WHERE name = 'scde'")
+        .fetch_optional(pool)
+        .await
+        .map_err(|_| "Unable to validate account details.")?
+        .ok_or("The SCDE role is unavailable. Contact an administrator.")?;
+    let valid: i64 =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM subcounty WHERE id = ? AND is_active = 1)")
+            .bind(&values.subcounty_id)
+            .fetch_one(pool)
+            .await
+            .map_err(|_| "Unable to validate account details.")?;
+    if valid == 0 {
+        return Err("Select an active subcounty.".into());
+    }
+    let existing: i64 =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE lower(email) = ?)")
+            .bind(&email)
+            .fetch_one(pool)
+            .await
+            .map_err(|_| "Unable to check email.")?;
+    if existing != 0 {
+        return Err("An account with that email already exists.".into());
+    }
+    let password_hash = hash(&values.password, 12).map_err(|_| "Unable to secure password.")?;
+    sqlx::query("INSERT INTO users (id, role_id, subcounty_id, name, email, phone, password_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive')")
+        .bind(uuid::Uuid::new_v4().to_string()).bind(&role_id).bind(&values.subcounty_id).bind(name).bind(email).bind(if phone.is_empty() { None } else { Some(phone) }).bind(password_hash)
+        .execute(pool).await.map_err(|_| "Unable to create account. The email may already be registered.")?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn login(
     pool: State<'_, SqlitePool>,
@@ -281,6 +368,37 @@ pub async fn change_account_password(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signup_assigns_scde_and_ignores_a_supplied_role() {
+        tauri::async_runtime::block_on(async {
+            let pool = sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect("sqlite::memory:")
+                .await
+                .unwrap();
+            crate::database::migrations::run_migrations(&pool)
+                .await
+                .unwrap();
+            crate::database::seed::seed_initial_data(&pool)
+                .await
+                .unwrap();
+            let area: String =
+                sqlx::query_scalar("SELECT id FROM subcounty WHERE sub_county_code='00304'")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            let request: SignupRequest = serde_json::from_value(serde_json::json!({
+                "name": "New Officer", "email": "new@example.com", "phone": "", "password": "Password123",
+                "subcountyId": area, "roleId": "administrator"
+            })).unwrap();
+            create_signup(&pool, request).await.unwrap();
+            let row = sqlx::query("SELECT r.name, r.permissions_json, u.status FROM users u JOIN roles r ON r.id=u.role_id WHERE u.email='new@example.com'").fetch_one(&pool).await.unwrap();
+            assert_eq!(row.get::<String, _>("name"), "scde");
+            assert_eq!(row.get::<String, _>("permissions_json"), "[]");
+            assert_eq!(row.get::<String, _>("status"), "inactive");
+        });
+    }
 
     #[test]
     fn account_updates_require_a_session() {
