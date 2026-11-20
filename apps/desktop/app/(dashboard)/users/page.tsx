@@ -12,6 +12,7 @@ type Account = {
   id: string;
   name: string;
   email: string;
+  username: string | null;
   phone: string | null;
   role: string;
   roleId: string;
@@ -70,7 +71,7 @@ function AccountManagementPage() {
 
   const visible = accounts.filter((account) =>
     (filter === "all" || account.status === filter) &&
-    [account.name, account.email, account.phone, account.role, account.subcounty].some((value) => value?.toLowerCase().includes(search.trim().toLowerCase())),
+    [account.name, account.email, account.username, account.phone, account.role, account.subcounty].some((value) => value?.toLowerCase().includes(search.trim().toLowerCase())),
   );
   const pending = accounts.filter((account) => account.status === "inactive").length;
   const active = accounts.filter((account) => account.status === "active").length;
@@ -114,7 +115,7 @@ function AccountManagementPage() {
           <label className={styles.filter}>Status <select value={filter} onChange={(event) => setFilter(event.target.value as Filter)}><option value="inactive">Awaiting review</option><option value="all">All accounts</option><option value="active">Active</option><option value="locked">Locked</option></select></label>
         </div>
         <div className="table-scroll"><table><thead><tr><th>Account</th><th>Role</th><th>Sub-county</th><th>Created</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-          {visible.map((account) => <tr key={account.id}><td><strong>{account.name}</strong><span className={styles.email}>{account.email}</span>{account.phone && <span className={styles.email}>{account.phone}</span>}</td><td>{account.role}</td><td>{account.subcounty || "Not assigned"}</td><td>{account.createdAt.slice(0, 10)}</td><td><span className={`${styles.badge} ${account.status === "inactive" ? styles.pending : account.status === "active" ? styles.active : styles.locked}`}>{account.status}</span></td><td>{account.id === options?.currentUserId ? <span className={styles.muted}>Your account</span> : <div className={styles.rowActions}>
+          {visible.map((account) => <tr key={account.id}><td><strong>{account.name}</strong><span className={styles.email}>{account.email}</span>{account.username && <span className={styles.email}>{account.username}</span>}{account.phone && <span className={styles.email}>{account.phone}</span>}</td><td>{account.role}</td><td>{account.subcounty || "Not assigned"}</td><td>{account.createdAt.slice(0, 10)}</td><td><span className={`${styles.badge} ${account.status === "inactive" ? styles.pending : account.status === "active" ? styles.active : styles.locked}`}>{account.status}</span></td><td>{account.id === options?.currentUserId ? <span className={styles.muted}>Your account</span> : <div className={styles.rowActions}>
             {account.status === "inactive" && <button type="button" className={styles.review} onClick={() => openAction(account, "verify")}>Verify</button>}
             {(account.status === "inactive" || account.status === "active") && <button type="button" className={styles.rowButton} onClick={() => openAction(account, "lock")}>Lock</button>}
             {account.status === "locked" && <button type="button" className={styles.rowButton} onClick={() => openAction(account, "unlock")}>Unlock</button>}
@@ -130,7 +131,7 @@ function AccountManagementPage() {
       <div className={styles.dialogIcon}><ShieldCheck size={22} /></div>
       <h2 id="review-title">{{ verify: "Verify this account?", lock: "Lock this account?", unlock: "Unlock this account?", role: "Change account role", delete: "Delete this account?" }[action]}</h2>
       <p>{{ verify: "Confirm the person's identity and access before activating their account.", lock: "This account will no longer be able to sign in.", unlock: "The account will become inactive and must be verified before it can sign in.", role: "Choose the role to assign to this account.", delete: "This permanently deletes the account. Related reports will no longer identify it as their creator." }[action]}</p>
-      <dl><div><dt>Name</dt><dd>{selected.name}</dd></div><div><dt>Email</dt><dd>{selected.email}</dd></div><div><dt>Phone</dt><dd>{selected.phone || "Not provided"}</dd></div><div><dt>Current role</dt><dd>{selected.role}</dd></div><div><dt>Sub-county</dt><dd>{selected.subcounty || "Not assigned"}</dd></div></dl>
+      <dl><div><dt>Name</dt><dd>{selected.name}</dd></div><div><dt>Email</dt><dd>{selected.email}</dd></div><div><dt>Username</dt><dd>{selected.username || "Not assigned"}</dd></div><div><dt>Phone</dt><dd>{selected.phone || "Not provided"}</dd></div><div><dt>Current role</dt><dd>{selected.role}</dd></div><div><dt>Sub-county</dt><dd>{selected.subcounty || "Not assigned"}</dd></div></dl>
       {action === "role" && <label className={styles.rolePicker}>New role<select value={newRole} onChange={(event) => setNewRole(event.target.value)}>{options?.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></label>}
       {((action === "verify" && selected.role.toLowerCase() === "administrator") || (action === "role" && options?.roles.find((role) => role.id === newRole)?.name.toLowerCase() === "administrator")) && <p className={styles.warning}>This grants administrator access. Verify this role carefully.</p>}
       {error && <div className={styles.error} role="alert">{error}</div>}

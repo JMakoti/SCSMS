@@ -30,6 +30,7 @@ export const users = sqliteTable(
     subcountyId: text("subcounty_id").references(() => subcounty.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     email: text("email").notNull(),
+    username: text("username"),
     phone: text("phone"),
     passwordHash: text("password_hash").notNull(),
     status: text("status", {
@@ -43,6 +44,7 @@ export const users = sqliteTable(
   },
   (table) => ({
     emailIdx: uniqueIndex("users_email_idx").on(table.email),
+    usernameIdx: uniqueIndex("users_username_idx").on(table.username),
     roleIdx: index("users_role_idx").on(table.roleId),
     subcountyIdx: index("users_subcounty_idx").on(table.subcountyId),
     statusIdx: index("users_status_idx").on(table.status),

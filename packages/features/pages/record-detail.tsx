@@ -260,7 +260,9 @@ export function RecordDetail({
                       : BookOpen;
 
   const fields =
-    active === "Settings"
+    active === "Settings" && item === "Help"
+      ? [["Administrator", "0798995763"]]
+      : active === "Settings"
       ? [
           ["Section", item],
           ["Description", settingsMeta[item]?.desc ?? "Configuration section"],
@@ -542,7 +544,7 @@ export function RecordDetail({
             headers={["Field", "Value"]}
             rows={fields.map(([label, value]) => [label, value])}
           />}
-          {(active === "Settings" || active === "System Information") && (
+          {((active === "Settings" && item !== "Help") || active === "System Information") && (
             <Button
               className="edit-record-button"
               onClick={() =>
@@ -626,7 +628,7 @@ export function RecordDetail({
               {fields.map(([label, value]) => (
                 <div key={label}>
                   <dt>{label}</dt>
-                  <dd>{value}</dd>
+                  <dd>{active === "Settings" && item === "Help" && label === "Administrator" ? <a href="tel:0798995763">{value}</a> : value}</dd>
                 </div>
               ))}
             </dl>

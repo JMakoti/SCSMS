@@ -23,13 +23,13 @@ export async function seedSubCounties() {
         if (queued.length) throw new Error(`Pending sync data references ${existing.id}; synchronize it before changing seed IDs.`);
         await tx.update(subcounty).set({ subCountyCode: null }).where(eq(subcounty.id, existing.id));
         const legacyRabai = item.subCountyCode === "00304" && existing.subCountyCode === "00301";
-        await tx.insert(subcounty).values({ ...existing, id: item.id, subCountyCode: item.subCountyCode, ...(legacyRabai ? { constituency: item.constituency, constituencyCode: item.constituencyCode } : {}) });
+        await tx.insert(subcounty).values({ ...existing, id: item.id, subCountyCode: item.subCountyCode, knecCode: existing.knecCode ?? item.knecCode, ...(legacyRabai ? { constituency: item.constituency, constituencyCode: item.constituencyCode } : {}) });
         await tx.update(wards).set({ subCountyId: item.id }).where(eq(wards.subCountyId, existing.id));
         await tx.update(users).set({ subcountyId: item.id }).where(eq(users.subcountyId, existing.id));
         await tx.update(auditLogs).set({ entityId: item.id }).where(and(eq(auditLogs.entityType, "subcounty"), eq(auditLogs.entityId, existing.id)));
         await tx.delete(subcounty).where(eq(subcounty.id, existing.id));
       } else if (existing) {
-        await tx.update(subcounty).set({ subCountyCode: item.subCountyCode }).where(eq(subcounty.id, item.id));
+        await tx.update(subcounty).set({ subCountyCode: item.subCountyCode, knecCode: existing.knecCode ?? item.knecCode }).where(eq(subcounty.id, item.id));
       } else {
         await tx.insert(subcounty).values(item);
       }

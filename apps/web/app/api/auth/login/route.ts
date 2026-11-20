@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@scsms/db/postgres";
 import { users } from "@scsms/db/postgress-schemas/user";
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       status: users.status,
     })
     .from(users)
-    .where(eq(users.email, email))
+    .where(sql`lower(${users.email}) = ${email} OR lower(${users.username}) = ${email}`)
     .limit(1);
 
   if (
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     !(await bcrypt.compare(password, user.passwordHash))
   ) {
     return NextResponse.json(
-      { error: "Email or password is incorrect." },
+      { error: "Email, username or password is incorrect." },
       { status: 401 },
     );
   }

@@ -10,6 +10,7 @@ pub struct ReviewAccount {
     id: String,
     name: String,
     email: String,
+    username: Option<String>,
     phone: Option<String>,
     role: String,
     role_id: String,
@@ -53,13 +54,14 @@ async fn administrator(pool: &SqlitePool, actor: &str) -> Result<(), String> {
 
 async fn list_accounts(pool: &SqlitePool, actor: &str) -> Result<Vec<ReviewAccount>, String> {
     administrator(pool, actor).await?;
-    let rows = sqlx::query("SELECT u.id, u.name, u.email, u.phone, u.role_id, u.subcounty_id, r.name AS role, s.sub_county AS subcounty, u.status, u.created_at FROM users u JOIN roles r ON r.id=u.role_id LEFT JOIN subcounty s ON s.id=u.subcounty_id ORDER BY CASE WHEN u.status='inactive' THEN 0 ELSE 1 END, u.created_at DESC, u.id")
+    let rows = sqlx::query("SELECT u.id, u.name, u.email, u.username, u.phone, u.role_id, u.subcounty_id, r.name AS role, s.sub_county AS subcounty, u.status, u.created_at FROM users u JOIN roles r ON r.id=u.role_id LEFT JOIN subcounty s ON s.id=u.subcounty_id ORDER BY CASE WHEN u.status='inactive' THEN 0 ELSE 1 END, u.created_at DESC, u.id")
         .fetch_all(pool).await.map_err(|_| "Unable to load accounts.".to_string())?;
     rows.into_iter()
         .map(|row| {
             Ok(ReviewAccount {
                 id: row.try_get("id").map_err(|_| "Unable to read account.")?,
                 name: row.try_get("name").map_err(|_| "Unable to read account.")?,
+                username: row.try_get("username").map_err(|_| "Invalid account.")?,
                 email: row
                     .try_get("email")
                     .map_err(|_| "Unable to read account.")?,

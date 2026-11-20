@@ -60,7 +60,8 @@ const settingsDescriptions: Record<string, string> = {
   Synchronization: "Offline queue, sync interval and retry policy",
   Backup: "Retention, snapshots and restore points",
   Security: "Auth, roles and session controls",
-  Update: "Stay informed with the latest developments."
+  Update: "Stay informed with the latest developments.",
+  Help: "Contact the administrator for assistance",
 };
 
 export function GenericPage({
@@ -128,7 +129,9 @@ export function GenericPage({
   const auditLogById = new Map(auditLogRecords.map((record) => [record.id, record]));
   const userRoles = moduleRecords["Users & Roles"];
   const moduleItems =
-    active === "Reports"
+    active === "Settings"
+      ? [...new Set([...(moduleRecords[active] ?? []), "Help"])]
+      : active === "Reports"
       ? reportTemplates.map((report) => report.title)
       : active === "Users & Roles"
       ? [...new Set(["Education Officer", ...(userRoles?.length ? userRoles : defaultUserRoles)])]

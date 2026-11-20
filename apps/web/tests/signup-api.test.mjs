@@ -30,6 +30,8 @@ function harness(rolePresent = true) {
       return [];
     } }) }) }),
     insert: () => ({ values: async (value) => { inserts.push(value); } }),
+    update: () => ({ set: () => ({ where: () => ({ returning: async () => [{ id: "area" }] }) }) }),
+    transaction: async (fn) => fn(db),
   };
   const routes = compile("../app/api/auth/signup/route.ts", {
     "next/server": { NextResponse: { json: (body, init) => new Response(JSON.stringify(body), init) } },
@@ -42,12 +44,13 @@ function harness(rolePresent = true) {
   });
   return { inserts, queries, request: (body) => routes.POST(new Request("http://localhost/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })) };
 }
-const request = { name: "Officer", email: "officer@example.com", phone: "", password: "password123", subcountyId: "area", roleId: "administrator" };
+const request = { name: "Officer", email: "officer@example.com", phone: "", password: "password123", subcountyId: "area", knecCode: "00123", roleId: "administrator" };
 test("signup ignores an injected role and assigns inactive SCDE", async () => {
   const app = harness();
   assert.equal((await app.request(request)).status, 201);
   assert.equal(app.inserts[0].roleId, "scde-id");
   assert.equal(app.inserts[0].status, "inactive");
+  assert.equal(app.inserts[0].username, "SCDE00123");
   assert.equal(app.queries.find((query) => query.table === roles).condition.value, "scde");
 });
 test("signup fails closed when SCDE is unavailable", async () => {

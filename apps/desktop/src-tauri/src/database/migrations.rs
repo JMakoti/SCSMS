@@ -11,6 +11,9 @@ const EXAMINATION_RESULTS_SCHEMA_VERSION: i64 = 8;
 const CANDIDATURE_SCHEMA_VERSION: i64 = 9;
 const GIS_LOCATION_SCHEMA_VERSION: i64 = 10;
 const SUBCOUNTY_CODE_SCHEMA_VERSION: i64 = 11;
+const USERNAME_SCHEMA_VERSION: i64 = 12;
+const USERNAME_SCHEMA_SQL: &str =
+    include_str!("../../../../../database/drizzle/sqlite/0011_many_guardian.sql");
 const SUBCOUNTY_CODE_SCHEMA_SQL: &str =
     include_str!("../../../../../database/drizzle/sqlite/0010_spicy_medusa.sql");
 const GIS_LOCATION_SCHEMA_SQL: &str =
@@ -158,6 +161,10 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), String> {
             "unique sub-county codes",
         )
         .await?;
+    }
+    if !migration_exists(pool, USERNAME_SCHEMA_VERSION).await? {
+        apply_migration(pool, USERNAME_SCHEMA_SQL).await?;
+        record_migration(pool, USERNAME_SCHEMA_VERSION, "usernames and KNEC codes").await?;
     }
     Ok(())
 }

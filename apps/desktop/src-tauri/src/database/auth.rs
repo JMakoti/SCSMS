@@ -53,6 +53,7 @@ pub struct SignupRequest {
     phone: String,
     password: String,
     subcounty_id: String,
+    knec_code: String,
 }
 
 #[tauri::command]
@@ -90,6 +91,9 @@ async fn create_signup(pool: &SqlitePool, values: SignupRequest) -> Result<(), S
         || values.password.chars().count() < 8
         || values.password.len() > 72
         || values.subcounty_id.len() > 36
+        || values.knec_code.is_empty()
+        || values.knec_code.len() > 20
+        || !values.knec_code.bytes().all(|c| c.is_ascii_digit())
     {
         return Err("Enter valid account details. Passwords must contain 8 to 72 bytes.".into());
     }
@@ -98,14 +102,15 @@ async fn create_signup(pool: &SqlitePool, values: SignupRequest) -> Result<(), S
         .await
         .map_err(|_| "Unable to validate account details.")?
         .ok_or("The SCDE role is unavailable. Contact an administrator.")?;
-    let valid: i64 =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM subcounty WHERE id = ? AND is_active = 1)")
+    let area: Option<Option<String>> =
+        sqlx::query_scalar("SELECT knec_code FROM subcounty WHERE id = ? AND is_active = 1")
             .bind(&values.subcounty_id)
-            .fetch_one(pool)
+            .fetch_optional(pool)
             .await
             .map_err(|_| "Unable to validate account details.")?;
-    if valid == 0 {
-        return Err("Select an active subcounty.".into());
+    let code = area.ok_or("Select an active subcounty.")?;
+    if code.as_deref().is_some_and(|c| c != values.knec_code) {
+        return Err("The KNEC code does not match this subcounty.".into());
     }
     let existing: i64 =
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE lower(email) = ?)")
@@ -117,9 +122,26 @@ async fn create_signup(pool: &SqlitePool, values: SignupRequest) -> Result<(), S
         return Err("An account with that email already exists.".into());
     }
     let password_hash = hash(&values.password, 12).map_err(|_| "Unable to secure password.")?;
-    sqlx::query("INSERT INTO users (id, role_id, subcounty_id, name, email, phone, password_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'inactive')")
-        .bind(uuid::Uuid::new_v4().to_string()).bind(&role_id).bind(&values.subcounty_id).bind(name).bind(email).bind(if phone.is_empty() { None } else { Some(phone) }).bind(password_hash)
-        .execute(pool).await.map_err(|_| "Unable to create account. The email may already be registered.")?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|_| "Unable to create account.")?;
+    let updated = sqlx::query(
+        "UPDATE subcounty SET knec_code = ? WHERE id = ? AND (knec_code IS NULL OR knec_code = ?)",
+    )
+    .bind(&values.knec_code)
+    .bind(&values.subcounty_id)
+    .bind(&values.knec_code)
+    .execute(&mut *tx)
+    .await
+    .map_err(|_| "Unable to save KNEC code.")?;
+    if updated.rows_affected() != 1 {
+        return Err("The KNEC code does not match this subcounty.".into());
+    }
+    sqlx::query("INSERT INTO users (id, role_id, subcounty_id, name, email, username, phone, password_hash, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'inactive')")
+        .bind(uuid::Uuid::new_v4().to_string()).bind(&role_id).bind(&values.subcounty_id).bind(name).bind(email).bind(format!("SCDE{}", values.knec_code)).bind(if phone.is_empty() { None } else { Some(phone) }).bind(password_hash)
+        .execute(&mut *tx).await.map_err(|_| "Unable to create account. The email or generated username may already be registered.")?;
+    tx.commit().await.map_err(|_| "Unable to create account.")?;
     Ok(())
 }
 
@@ -132,7 +154,7 @@ pub async fn login(
     let email = credentials.email.trim().to_lowercase();
 
     if email.is_empty() || credentials.password.is_empty() {
-        return Err("Email and password are required.".to_string());
+        return Err("Email or username and password are required.".to_string());
     }
 
     let row = sqlx::query(
@@ -148,17 +170,18 @@ pub async fn login(
             roles.permissions_json
         FROM users
         INNER JOIN roles ON roles.id = users.role_id
-        WHERE lower(users.email) = ?
+        WHERE lower(users.email) = ? OR lower(users.username) = ?
         LIMIT 1
         "#,
     )
+    .bind(&email)
     .bind(&email)
     .fetch_optional(pool.inner())
     .await
     .map_err(|error| format!("Failed to read user account: {error}"))?;
 
     let Some(row) = row else {
-        return Err("Invalid email or password.".to_string());
+        return Err("Invalid email, username or password.".to_string());
     };
 
     let status = row
@@ -177,7 +200,7 @@ pub async fn login(
         .map_err(|error| format!("Failed to verify password: {error}"))?;
 
     if !is_valid {
-        return Err("Invalid email or password.".to_string());
+        return Err("Invalid email, username or password.".to_string());
     }
 
     let permissions_json = row
@@ -390,7 +413,7 @@ mod tests {
                     .unwrap();
             let request: SignupRequest = serde_json::from_value(serde_json::json!({
                 "name": "New Officer", "email": "new@example.com", "phone": "", "password": "Password123",
-                "subcountyId": area, "roleId": "administrator"
+                "subcountyId": area, "knecCode": "04122", "roleId": "administrator"
             })).unwrap();
             create_signup(&pool, request).await.unwrap();
             let row = sqlx::query("SELECT r.name, r.permissions_json, u.status FROM users u JOIN roles r ON r.id=u.role_id WHERE u.email='new@example.com'").fetch_one(&pool).await.unwrap();

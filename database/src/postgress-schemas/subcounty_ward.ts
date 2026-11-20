@@ -26,6 +26,7 @@ export const subcounty = pgTable(
 
     subCounty: text("sub_county"),
     subCountyCode: text("sub_county_code"),
+    knecCode: text("knec_code"),
 
     constituency: text("constituency"),
     constituencyCode: text("constituency_code"),

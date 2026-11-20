@@ -21,6 +21,7 @@ struct SubCounty {
     county_code: String,
     sub_county: String,
     sub_county_code: String,
+    knec_code: String,
     constituency: String,
     constituency_code: String,
     notes: String,
@@ -80,6 +81,14 @@ pub async fn seed_initial_data(pool: &SqlitePool) -> Result<(), String> {
                 item.sub_county_code
             ));
         }
+        if let Some(ref existing_id) = old {
+            sqlx::query("UPDATE subcounty SET knec_code = ? WHERE id = ? AND knec_code IS NULL")
+                .bind(&item.knec_code)
+                .bind(existing_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
         match old {
             Some(old) if old != item.id => {
                 let pending = sqlx::query("SELECT id FROM sync_queue WHERE status != 'synced' AND (record_id = ? OR instr(coalesce(payload_json, ''), ?) > 0) LIMIT 1").bind(&old).bind(&old).fetch_optional(&mut *tx).await.map_err(|e| e.to_string())?;
@@ -101,7 +110,7 @@ pub async fn seed_initial_data(pool: &SqlitePool) -> Result<(), String> {
                     .execute(&mut *tx)
                     .await
                     .map_err(|e| e.to_string())?;
-                sqlx::query("INSERT INTO subcounty (id, county, county_code, sub_county, sub_county_code, constituency, constituency_code, notes, boundary_geojson, is_active, created_at, updated_at) SELECT ?, county, county_code, sub_county, ?, constituency, constituency_code, notes, boundary_geojson, is_active, created_at, updated_at FROM subcounty WHERE id = ?").bind(&item.id).bind(&item.sub_county_code).bind(&old).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+                sqlx::query("INSERT INTO subcounty (id, county, county_code, sub_county, sub_county_code, knec_code, constituency, constituency_code, notes, boundary_geojson, is_active, created_at, updated_at) SELECT ?, county, county_code, sub_county, ?, knec_code, constituency, constituency_code, notes, boundary_geojson, is_active, created_at, updated_at FROM subcounty WHERE id = ?").bind(&item.id).bind(&item.sub_county_code).bind(&old).execute(&mut *tx).await.map_err(|e| e.to_string())?;
                 if legacy_rabai {
                     sqlx::query(
                         "UPDATE subcounty SET constituency = ?, constituency_code = ? WHERE id = ?",
@@ -142,7 +151,7 @@ pub async fn seed_initial_data(pool: &SqlitePool) -> Result<(), String> {
                     .map_err(|e| e.to_string())?;
             }
             None => {
-                sqlx::query("INSERT INTO subcounty (id, county, county_code, sub_county, sub_county_code, constituency, constituency_code, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(&item.id).bind(&item.county).bind(&item.county_code).bind(&item.sub_county).bind(&item.sub_county_code).bind(&item.constituency).bind(&item.constituency_code).bind(&item.notes).bind(true).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+                sqlx::query("INSERT INTO subcounty (id, county, county_code, sub_county, sub_county_code, knec_code, constituency, constituency_code, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(&item.id).bind(&item.county).bind(&item.county_code).bind(&item.sub_county).bind(&item.sub_county_code).bind(&item.knec_code).bind(&item.constituency).bind(&item.constituency_code).bind(&item.notes).bind(true).execute(&mut *tx).await.map_err(|e| e.to_string())?;
             }
         }
     }
@@ -202,6 +211,43 @@ pub async fn seed_initial_data(pool: &SqlitePool) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::database::migrations::run_migrations;
+
+    #[test]
+    fn seed_populates_knec_codes_and_preserves_existing_values() {
+        tauri::async_runtime::block_on(async {
+            let pool = sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect("sqlite::memory:")
+                .await
+                .unwrap();
+            run_migrations(&pool).await.unwrap();
+            sqlx::query("INSERT INTO subcounty (id, sub_county, sub_county_code) VALUES ('legacy', 'Rabai', '00304')")
+                .execute(&pool).await.unwrap();
+            seed_initial_data(&pool).await.unwrap();
+            let codes: Vec<(String, Option<String>)> =
+                sqlx::query_as("SELECT sub_county, knec_code FROM subcounty ORDER BY sub_county")
+                    .fetch_all(&pool)
+                    .await
+                    .unwrap();
+            let data: Seeds = serde_json::from_str(REFERENCE_DATA).unwrap();
+            assert_eq!(codes.len(), data.sub_counties.len());
+            for item in &data.sub_counties {
+                assert!(codes.iter().any(|(name, code)| name == &item.sub_county
+                    && code.as_deref() == Some(item.knec_code.as_str())));
+            }
+            sqlx::query("UPDATE subcounty SET knec_code = '99999' WHERE sub_county = 'Rabai'")
+                .execute(&pool)
+                .await
+                .unwrap();
+            seed_initial_data(&pool).await.unwrap();
+            let code: String =
+                sqlx::query_scalar("SELECT knec_code FROM subcounty WHERE sub_county = 'Rabai'")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(code, "99999");
+        });
+    }
 
     #[test]
     fn startup_defers_reconciliation_without_changing_pending_data() {

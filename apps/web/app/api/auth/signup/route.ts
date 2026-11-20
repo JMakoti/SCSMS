@@ -21,13 +21,18 @@ export async function POST(request: Request) {
   try {
     const [role, area, existing] = await Promise.all([
       db.select({ id: roles.id }).from(roles).where(eq(roles.name, "scde")).limit(1),
-      db.select({ id: subcounty.id }).from(subcounty).where(and(eq(subcounty.id, values.subcountyId), eq(subcounty.isActive, true))).limit(1),
+      db.select({ id: subcounty.id, knecCode: subcounty.knecCode }).from(subcounty).where(and(eq(subcounty.id, values.subcountyId), eq(subcounty.isActive, true))).limit(1),
       db.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${values.email}`).limit(1),
     ]);
     if (!role.length) return NextResponse.json({ error: "The SCDE role is unavailable. Contact an administrator." }, { status: 503 });
     if (!area.length) return NextResponse.json({ error: "Select an active subcounty." }, { status: 400 });
     if (existing.length) return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
-    await db.insert(users).values({ name: values.name, email: values.email, phone: values.phone || null, roleId: role[0].id, subcountyId: values.subcountyId, passwordHash: await bcrypt.hash(values.password, 12), status: "inactive" });
+    if (area[0].knecCode && area[0].knecCode !== values.knecCode) return NextResponse.json({ error: "The KNEC code does not match this subcounty." }, { status: 400 });
+    await db.transaction(async (tx) => {
+      const updated = await tx.update(subcounty).set({ knecCode: values.knecCode }).where(and(eq(subcounty.id, values.subcountyId), sql`(${subcounty.knecCode} IS NULL OR ${subcounty.knecCode} = ${values.knecCode})`)).returning({ id: subcounty.id });
+      if (!updated.length) throw new Error("KNEC code mismatch");
+      await tx.insert(users).values({ username: `SCDE${values.knecCode}`, name: values.name, email: values.email, phone: values.phone || null, roleId: role[0].id, subcountyId: values.subcountyId, passwordHash: await bcrypt.hash(values.password, 12), status: "inactive" });
+    });
     return NextResponse.json({ ok: true }, { status: 201 });
-  } catch { return NextResponse.json({ error: "Unable to create account. The email may already be registered." }, { status: 400 }); }
+  } catch { return NextResponse.json({ error: "Unable to create account. The email or generated username may already be registered." }, { status: 400 }); }
 }

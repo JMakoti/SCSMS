@@ -18,7 +18,7 @@ import { SignupPage } from "./signup-page";
 import { loginSchema } from "../schemas/login-schema";
 import type { LoginFormValues } from "../types/forms";
 
-export type SignupValues = { name: string; email: string; phone: string; password: string; subcountyId: string };
+export type SignupValues = { name: string; email: string; phone: string; password: string; subcountyId: string; knecCode: string };
 export type SignupOptions = { subcounties: { id: string; name: string }[] };
 
 type LoginUser = {
@@ -39,7 +39,7 @@ export function LoginPage({
   signup?: (values: SignupValues) => Promise<void>;
 }) {
   const [creating, setCreating] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const {
@@ -66,7 +66,7 @@ export function LoginPage({
     onLogin({ email: values.email });
   };
   if (creating && loadSignupOptions && signup) {
-    return <SignupPage loadOptions={loadSignupOptions} signup={signup} onBack={() => setCreating(false)} onSuccess={() => { setSuccess(true); setCreating(false); }} />;
+    return <SignupPage loadOptions={loadSignupOptions} signup={signup} onBack={() => setCreating(false)} onSuccess={(username) => { setSuccess(username); setCreating(false); }} />;
   }
   return (
     <main className="login-shell">
@@ -89,10 +89,10 @@ export function LoginPage({
         </div>
         <form className="login-form" onSubmit={handleSubmit(submit)}>
           <label>
-            Email address
+            Email or username
             <div className="login-input">
               <Mail />
-              <input type="email" {...register("email")} autoComplete="email" />
+              <input type="text" {...register("email")} autoComplete="username" />
             </div>
           </label>
           <label>
@@ -123,8 +123,8 @@ export function LoginPage({
             {isSubmitting ? "Signing in..." : "Sign in"} <ChevronRight />
           </button>
         </form>
-        {success && <p role="status">Account created. Ask an administrator to activate it before signing in.</p>}
-        {loadSignupOptions && signup && <p className="mt-10">Don't have an account? <button type="button" style={{ color: "#2563eb" }} onClick={() => { setSuccess(false); setCreating(true); }}>Create an account</button></p>}
+        {success && <p role="status">Account created. Your username is <strong>{success}</strong>. Ask an administrator (+254798995763) to activate it before signing in.</p>}
+        {loadSignupOptions && signup && <p className="mt-10">Don't have an account? <button type="button" style={{ color: "#2563eb" }} onClick={() => { setSuccess(""); setCreating(true); }}>Create an account</button></p>}
         {/* <Link className="login-database-link" href="/database-test">
           <span>
             <Database />

@@ -18,7 +18,7 @@ export function SignupPage({ loadOptions, signup, onBack, onSuccess }: {
   loadOptions: () => Promise<SignupOptions>;
   signup: (values: SignupValues) => Promise<void>;
   onBack: () => void;
-  onSuccess: () => void;
+  onSuccess: (username: string) => void;
 }) {
   const [options, setOptions] = useState<SignupOptions | null>(null);
   const [optionsError, setOptionsError] = useState("");
@@ -27,7 +27,7 @@ export function SignupPage({ loadOptions, signup, onBack, onSuccess }: {
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues, unknown, z.output<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", email: "", phone: "", subcountyId: "", password: "", confirmPassword: "" },
+    defaultValues: { name: "", email: "", phone: "", subcountyId: "", knecCode: "", password: "", confirmPassword: "" },
   });
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export function SignupPage({ loadOptions, signup, onBack, onSuccess }: {
         <div className="signup-heading"><span className="eyebrow">Get started</span><h1>Create your account</h1><p>Enter your details and select where you work to request access.</p></div>
         <form className="signup-form" noValidate onSubmit={handleSubmit(async ({ confirmPassword: _confirm, ...values }) => {
           setSubmitError("");
-          try { await signup(values); onSuccess(); } catch (error) { setSubmitError(error instanceof Error ? error.message : "Unable to create your account."); }
+          try { await signup(values); onSuccess(`SCDE${values.knecCode}`); } catch (error) { setSubmitError(error instanceof Error ? error.message : "Unable to create your account."); }
         })}>
           <section className="signup-section"><div className="signup-section-heading"><span>01</span><div><h2>Personal details</h2><p>Tell us how to identify and contact you.</p></div></div>
             <div className="signup-grid">
@@ -67,9 +67,10 @@ export function SignupPage({ loadOptions, signup, onBack, onSuccess }: {
           <section className="signup-section"><div className="signup-section-heading"><span>02</span><div><h2>Work assignment</h2><p>Select your subcounty.</p></div></div>
             <div className="signup-grid">
               <label>Subcounty<div className="login-input"><select {...register("subcountyId")} disabled={!options} aria-invalid={!!errors.subcountyId}><option value="">{options ? "Select a subcounty" : "Loading subcounties..."}</option>{options?.subcounties.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select></div>{errors.subcountyId && <small className="signup-field-error">Select a subcounty.</small>}</label>
+              <label>Subcounty KNEC code<div className="login-input signup-knec-input"><span aria-hidden="true">SCDE</span><input {...register("knecCode")} inputMode="numeric" placeholder="00123" aria-invalid={!!errors.knecCode} aria-describedby="knec-help" /></div>{errors.knecCode && <small className="signup-field-error">Enter a numeric KNEC code.</small>}<small id="knec-help">Enter your KNEC code after the fixed SCDE username prefix.</small></label>
             </div>
             {optionsError && <p className="signup-field-error" role="alert">{optionsError} <button type="button" className="signup-retry" onClick={() => setAttempt((value) => value + 1)}>Try again</button></p>}
-            {options && !ready && <p className="signup-field-error" role="alert">No active subcounties are available. Contact an administrator.</p>}
+            {options && !ready && <p className="signup-field-error" role="alert">No active subcounties are available. Contact an administrator. +254798995763</p>}
           </section>
           <section className="signup-section"><div className="signup-section-heading"><span>03</span><div><h2>Secure your account</h2><p>Use a password of at least 8 characters and no more than 72 bytes.</p></div></div>
             <div className="signup-grid">
